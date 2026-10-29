@@ -20,7 +20,7 @@ const RECEIPT = String.raw`(?<rcpt>[A-Z0-9]{10})`;
 // stop, sometimes a newline, sometimes nothing at all.
 const CONF = `${RECEIPT}\\s*[Cc]onfirmed[.\\s]*`;
 const DATE = String.raw`(?<d>\d{1,2}\/\d{1,2}\/\d{2,4})`;
-const TIME = String.raw`(?<t>\d{1,2}:\d{2}\s?(?:[AP]\.?M\.?)?)`;
+const TIME = String.raw`(?<t>\d{1,2}:\d{1,2}\s?(?:[AP]\.?M\.?)?)`;
 const AT = `on\\s+${DATE}\\s*(?:at\\s*)?${TIME}`;
 // Every balance line, whether the message says "New M-PESA balance" (most of them)
 // or just "M-PESA balance" (the Fuliza repayments).
@@ -43,7 +43,7 @@ function parseDateTime(dateStr, timeStr) {
   const year = y < 100 ? 2000 + y : y;
   let hour = 0;
   let minute = 0;
-  const t = String(timeStr || '').match(/(\d{1,2}):(\d{2})\s*([AP])?/i);
+  const t = String(timeStr || '').match(/(\d{1,2}):(\d{1,2})\s*([AP])?/i);
   if (t) {
     hour = parseInt(t[1], 10);
     minute = parseInt(t[2], 10);
@@ -112,7 +112,7 @@ const PATTERNS = [
     // named, so it carries the only thing the message says it is.
     type: 'Loan Repayment',
     direction: 'Out',
-    re: new RegExp(`${CONF}Loan of ${amt('amt')} repaid from M-PESA ${AT}`, 'i'),
+    re: new RegExp(`${CONF}Loan of ${amt('amt')} repaid from (?:your )?M-PESA(?: account)? ${AT}`, 'i'),
     who: 'Loan',
   },
   {

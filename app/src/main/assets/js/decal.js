@@ -70,4 +70,48 @@
   } else {
     draw();
   }
+
+  /**
+   * The tab bar gets out of the way when you scroll down for something, and
+   * comes back the moment you scroll up for it.
+   *
+   * It floats over the page so that moving between the three screens is always
+   * one tap, which is right - but it was also permanently covering the last
+   * couple of lines of whatever you were reading. Sliding it out on the way
+   * down keeps both: nothing is hidden while you are reading, and the bar is
+   * never more than a flick away.
+   */
+  function hideOnScroll() {
+    const bar = document.querySelector('.tabs');
+    if (!bar) return;
+    let last = window.scrollY;
+    let ticking = false;
+
+    const update = () => {
+      ticking = false;
+      const y = Math.max(0, window.scrollY);
+      const bottom = y + window.innerHeight >= document.documentElement.scrollHeight - 24;
+      // A few pixels of slack, or the bar flickers on the small jitters a
+      // finger makes while it is resting on a moving page.
+      if (bottom || y < 140 || y < last - 6) bar.classList.remove('away');
+      else if (y > last + 6) bar.classList.add('away');
+      last = y;
+    };
+
+    addEventListener(
+      'scroll',
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(update);
+      },
+      { passive: true }
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideOnScroll);
+  } else {
+    hideOnScroll();
+  }
 })();

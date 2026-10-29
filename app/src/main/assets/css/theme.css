@@ -179,6 +179,13 @@ html { background: var(--bg); }
   border-radius: 999px; background: var(--shell); border: 1px solid var(--shell-line);
   box-shadow: var(--shell-shadow);
   backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  transition: transform .25s var(--ease), opacity .25s var(--ease);
+}
+/* Out of the way on the way down. The translateX stays: it is what centres the
+   bar, and dropping it here would slide the bar sideways as well as away. */
+.tabs.away {
+  transform: translateX(-50%) translateY(calc(100% + 28px + env(safe-area-inset-bottom, 0px)));
+  opacity: 0;
 }
 .tab {
   display: flex; align-items: center; gap: 7px;
