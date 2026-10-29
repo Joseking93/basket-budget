@@ -51,11 +51,11 @@ jobs:
         run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
 
       - name: Name it something a person would recognise
-        run: cp app/build/outputs/apk/release/app-release.apk BasketBudget.apk
+        run: cp app/build/outputs/apk/release/app-release.apk BudgetTracker.apk
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
-          files: BasketBudget.apk
+          files: BudgetTracker.apk
           generate_release_notes: true
-          name: Basket Budget ${{ github.ref_name }}
+          name: Budget Tracker ${{ github.ref_name }}

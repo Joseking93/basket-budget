@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.content.Intent
 import android.os.Bundle
 import android.print.PrintAttributes
 import android.print.PrintManager
@@ -47,8 +48,9 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Basket Budget: the single-page app in assets/index.html, in a WebView, plus a
- * camera-to-ML-Kit bridge for reading a till slip.
+ * Budget Tracker: the pages in assets/ (the tracker at index.html, Basket at
+ * basket.html) in a WebView, plus the bridges only a phone can offer - the
+ * camera and ML Kit for a till slip, and the M-PESA messages in the inbox.
  *
  * The page is served over https://appassets.androidplatform.net rather than
  * file://, so it gets a real origin and its localStorage ("basket-budget-v1")
@@ -68,7 +70,13 @@ class MainActivity : ComponentActivity() {
      * the reloaded page is ready; without this the call vanishes silently.
      */
     private var pageReady = false
-    private var queuedJs: String? = null
+    private val queuedJs = mutableListOf<String>()
+
+    /** Set when the home-screen widget asked for a scan before the page loaded. */
+    private var scanOnLoad = false
+
+    /** Whether the SMS read that is waiting on permission wants the whole inbox. */
+    private var smsReadAll = false
 
     private val recognizer by lazy {
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
@@ -116,6 +124,18 @@ class MainActivity : ComponentActivity() {
                     "Camera permission is needed to photograph a receipt. You can still pick a photo or a PDF.",
                     Toast.LENGTH_LONG,
                 ).show()
+            }
+        }
+
+    private val askSms =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                readMessages(smsReadAll)
+            } else {
+                smsSays(
+                    "Android did not allow the messages to be read. You can still paste them " +
+                        "in, or import a statement.",
+                )
             }
         }
 
@@ -203,12 +223,19 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 pageReady = true
-                queuedJs?.let { view.evaluateJavascript(it, null) }
-                queuedJs = null
+                for (js in queuedJs) view.evaluateJavascript(js, null)
+                queuedJs.clear()
+                if (scanOnLoad) {
+                    scanOnLoad = false
+                    chooseSource()
+                }
             }
         }
         web.addJavascriptInterface(Bridge(), "Android")
-        web.loadUrl("https://$ASSET_HOST/assets/index.html")
+        // The widget goes straight to the shopping page and opens the camera;
+        // everything else starts at the tracker.
+        scanOnLoad = intent?.getBooleanExtra(ScanWidget.EXTRA_SCAN, false) == true
+        web.loadUrl("https://$ASSET_HOST/assets/" + if (scanOnLoad) BASKET_PAGE else HOME_PAGE)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -220,6 +247,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
         })
+    }
+
+    /** singleTop: the widget reuses this activity rather than stacking a copy. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!intent.getBooleanExtra(ScanWidget.EXTRA_SCAN, false)) return
+        val onBasket = web.url?.endsWith(BASKET_PAGE) == true
+        if (onBasket && pageReady) {
+            chooseSource()
+        } else {
+            // Scanning adds to the shopping list, so it has to happen there.
+            scanOnLoad = true
+            pageReady = false
+            web.loadUrl("https://$ASSET_HOST/assets/" + BASKET_PAGE)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -240,7 +283,7 @@ class MainActivity : ComponentActivity() {
 
     /** Calls into the page, waiting for it to load if a result beat it there. */
     private fun runJs(js: String) {
-        if (pageReady) web.evaluateJavascript(js, null) else queuedJs = js
+        if (pageReady) web.evaluateJavascript(js, null) else queuedJs.add(js)
     }
 
     // ---------------------------------------------------------------- bridge
@@ -355,6 +398,84 @@ class MainActivity : ComponentActivity() {
         fun scanReceipt() {
             runOnUiThread { chooseSource() }
         }
+
+        /** So the page only offers the button on a phone that can do it. */
+        @JavascriptInterface
+        fun canReadSms(): Boolean = true
+
+        /**
+         * Reads M-PESA's messages out of the inbox and hands them to the page,
+         * which already knows how to turn them into transactions.
+         *
+         * @param all true re-reads the whole inbox; false only what is new
+         *            since the last read, which is what the button does.
+         */
+        @JavascriptInterface
+        fun readSms(all: Boolean) {
+            runOnUiThread {
+                smsReadAll = all
+                if (ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.READ_SMS,
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    readMessages(all)
+                } else {
+                    askSms.launch(Manifest.permission.READ_SMS)
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ sms
+
+    private fun readMessages(all: Boolean) {
+        val prefs = getSharedPreferences(SMS_PREFS, MODE_PRIVATE)
+        // Only what has arrived since last time, so re-reading is quick. The
+        // page ignores duplicates anyway - every transaction is keyed by its
+        // M-PESA receipt - so this is about speed, not correctness.
+        val since = if (all) 0L else prefs.getLong(KEY_NEWEST_SMS, 0L)
+        smsSays(
+            if (all) "Reading every M-PESA message" + ELLIPSIS
+            else "Looking for new messages" + ELLIPSIS
+        )
+        Thread {
+            val batch = try {
+                SmsReader.read(this, since)
+            } catch (e: Exception) {
+                // A handset that keeps its inbox somewhere else, or a security
+                // policy that refuses: say so instead of appearing to hang.
+                runOnUiThread { smsSays("Android would not hand over the messages on this phone.") }
+                return@Thread
+            }
+            runOnUiThread {
+                if (batch.newest > since) {
+                    prefs.edit().putLong(KEY_NEWEST_SMS, batch.newest).apply()
+                }
+                deliverSms(batch.messages)
+            }
+        }.start()
+    }
+
+    /**
+     * In batches, because one evaluateJavascript carrying a whole inbox is a
+     * single enormous string across a process boundary and can simply fail.
+     */
+    private fun deliverSms(messages: List<String>) {
+        if (messages.isEmpty()) {
+            runJs("window.onSmsBatch && window.onSmsBatch('', true, 0);")
+            return
+        }
+        val chunks = messages.chunked(SMS_CHUNK)
+        chunks.forEachIndexed { index, chunk ->
+            val text = JSONObject.quote(chunk.joinToString(BLANK_LINE))
+            val last = index == chunks.size - 1
+            runJs("window.onSmsBatch && window.onSmsBatch(" + text + ", " + last + ", " + messages.size + ");")
+        }
+    }
+
+    private fun smsSays(message: String) {
+        runJs("window.onSmsStatus && window.onSmsStatus(" + JSONObject.quote(message) + ");")
     }
 
     // ------------------------------------------------------------- scanning
@@ -581,6 +702,14 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val ASSET_HOST = "appassets.androidplatform.net"
+        const val HOME_PAGE = "index.html"
+        const val BASKET_PAGE = "basket.html"
+        const val SMS_PREFS = "sms"
+        const val KEY_NEWEST_SMS = "newest"
+        const val SMS_CHUNK = 200
+        /** A blank line between messages is what the page's splitter expects. */
+        const val BLANK_LINE = "\n\n"
+        const val ELLIPSIS = "\u2026"
         const val KEY_PENDING_PHOTO = "pendingPhotoPath"
         const val MAX_PDF_PAGES = 5
         const val PDF_TARGET_WIDTH = 1600

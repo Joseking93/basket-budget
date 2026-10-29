@@ -1,0 +1,58 @@
+// Who you are, across accounts — held at runtime, NOT written here.
+//
+// This file used to contain a real phone number, two real account numbers and a
+// family member's number. That was fine while it was a file on one PC. It stops
+// being fine the moment the code is hosted anywhere so a phone can install it:
+// source gets published, and those identifiers would go with it.
+//
+// So the values now live in your browser's own storage and are edited in the
+// Settings panel. The code ships knowing nothing about you.
+//
+// `configure()` fills these in at startup. The exports are live bindings, so every
+// module that imported them sees the update without re-importing.
+
+export const ME = { phones: [], accounts: [] };
+export let PEOPLE = [];
+
+// A send to a person of this much or less is almost always food — the sellers who
+// take payment by phone rather than a till. Above it the app refuses to guess and
+// leaves it Uncategorised for you to assign.
+//
+// This is the one guess the app still makes, and it's narrow on purpose: it catches
+// the long tail of small sends, not the money that actually matters.
+export let SMALL_SEND_LIMIT = 200;
+
+export const DEFAULT_SETTINGS = { name: '', phones: [], accounts: [], people: [], smallSendLimit: 200 };
+
+export function configure(s = {}) {
+  ME.phones = (s.phones || []).map(norm).filter(Boolean);
+  ME.accounts = (s.accounts || []).map((a) => String(a).trim()).filter(Boolean);
+  PEOPLE = (s.people || []).filter((p) => p && p.number && p.name);
+  SMALL_SEND_LIMIT = Number.isFinite(+s.smallSendLimit) ? +s.smallSendLimit : 200;
+}
+
+/** 07… and 2547… are the same line. Store one form so comparisons are simple. */
+export function norm(n) {
+  const s = String(n || '').replace(/[^\d+]/g, '').replace(/^\+/, '');
+  return s.replace(/^0/, '254');
+}
+
+/**
+ * True if a statement description refers to one of your own phones/accounts.
+ *
+ * This is what makes "internal transfer" a fact rather than a guess. A bank row
+ * reading "IBKG MPESA PAY TO <your number>" is you topping up your own wallet — the
+ * same movement M-PESA also records, so counting both would double it. A row naming
+ * someone else's number is real spending. Only this list tells the two apart, which
+ * is why an empty Settings panel quietly breaks the distinction.
+ */
+export function isSelf(text) {
+  const s = String(text || '');
+  if (!ME.phones.length && !ME.accounts.length) return false;
+  return [...ME.phones, ...ME.accounts].some((id) => id && s.includes(id));
+}
+
+/** Has the user told us who they are yet? */
+export function isConfigured() {
+  return ME.phones.length > 0 || ME.accounts.length > 0;
+}

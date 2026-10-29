@@ -11,8 +11,8 @@ android {
         applicationId = "com.basketbudget.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 23
-        versionName = "3.5"
+        versionCode = 24
+        versionName = "4.0"
 
         ndk {
             // ML Kit's OCR engine ships native libraries for four ABIs. x86 and

@@ -8,6 +8,11 @@
     <!-- Used only by the update check, which runs when you tap it. Reading a
          receipt is done entirely on the device by the bundled model. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- M-PESA's own messages, read on request so a month of spending does not
+         have to be typed in or exported as a statement. The text never leaves
+         the phone: it goes to the page in this app, which stores it here. -->
+    <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
@@ -22,6 +27,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -29,6 +35,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".ScanWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_scan_info" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

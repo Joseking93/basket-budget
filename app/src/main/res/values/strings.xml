@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Basket Budget</string>
+    <string name="app_name">Budget Tracker</string>
+    <string name="widget_label">Scan a receipt</string>
+    <string name="widget_description">One tap from the home screen to photograph a till slip.</string>
 </resources>

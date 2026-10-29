@@ -1,0 +1,58 @@
+# Netlify config for the tracker.
+#
+# The app is a plain static site — no build step, no framework, nothing to compile.
+
+[build]
+  # The web app and the APK are served from one folder, so there is one copy
+  # of it to keep right.
+  publish = "app/src/main/assets"
+
+# The service worker MUST be revalidated on every load.
+#
+# This is the trap: a CDN happily caches sw.js for a year, and the service worker
+# then serves the old app from its own cache too. Two caches deep, on a phone with no
+# obvious way to hard-refresh, and a fix you shipped never arrives. We already lost
+# an afternoon to exactly this failure with plain browser caching.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# The app's own modules change whenever it's redeployed and are small; revalidating
+# costs a round trip and buys never running yesterday's parser.
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# pdf.js is 1.7MB and versioned by its own filename — safe to cache hard.
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Your statements are read in the page and never uploaded. These headers stop
+    # anything else being loaded into it or framing it.
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "geolocation=(), camera=(), microphone=(), interest-cohort=()"

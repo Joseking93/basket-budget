@@ -1,0 +1,1006 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Basket — Budget Tracker</title>
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+</head><body>
+<style>
+/* The two webfonts are bundled, so the type survives with no network. */
+@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;
+  src:url(fonts/inter-var-latin.woff2) format('woff2')}
+</style>
+<style>
+/* Two themes, switched by hand from the header.
+   Light is the Wallet look: a coloured budget card over grey, with a botanical
+   line engraving etched into the background.
+   Dark is Liquid Glass: translucent panels over black, floating tab bar. */
+:root, :root[data-theme="light"]{
+  --bg:#F2F2F7; --ink:#000000; --ink2:#6C6C70; --line:#E5E5EA;
+  --card:#FFFFFF; --card-line:#E5E5EA; --card-shadow:0 1px 2px rgba(0,0,0,.05);
+  --hero:#4B3FBF; --hero-ink:#FFFFFF; --hero-dim:rgba(255,255,255,.85);
+  --hero-track:rgba(255,255,255,.26); --hero-fill:#FFFFFF;
+  --tint:#4B3FBF; --on-tint:#FFFFFF; --tint-soft:#ECEBFA;
+  --warn:#B45309; --bad:#C0352B;
+  --shell:rgba(255,255,255,.88); --shell-line:#DCDCE1; --shell-shadow:0 6px 24px rgba(0,0,0,.10);
+  --decal-fill:#E4E2F4; --decal-line:#C2BDE5;
+  --body:"Inter",-apple-system,system-ui,sans-serif;
+  --mono:"Inter",-apple-system,system-ui,sans-serif;
+  --blur:none;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#000000; --ink:#FFFFFF; --ink2:#A8A8AD; --line:rgba(255,255,255,.12);
+  --card:rgba(255,255,255,.06); --card-line:rgba(255,255,255,.11); --card-shadow:none;
+  --hero:rgba(255,255,255,.08); --hero-ink:#FFFFFF; --hero-dim:#A8A8AD;
+  --hero-track:rgba(255,255,255,.14); --hero-fill:#FF9F0A;
+  --tint:#FF9F0A; --on-tint:#241500; --tint-soft:rgba(255,159,10,.16);
+  --warn:#FFD60A; --bad:#FF6482;
+  --shell:rgba(40,40,42,.72); --shell-line:rgba(255,255,255,.16); --shell-shadow:none;
+  --decal-fill:rgba(255,255,255,.13); --decal-line:rgba(255,255,255,.34);
+  --blur:blur(24px);
+  color-scheme:dark;
+}
+
+*{-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 118px}
+
+/* The engraving. Fixed, so it sits behind everything and never scrolls - which
+   is also what gives the glass something to refract in the dark theme. */
+.decal{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.decal svg{position:absolute;fill:var(--decal-fill);stroke:var(--decal-line)}
+.decal .d1{top:-84px;right:-110px;width:380px;transform:rotate(8deg)}
+.decal .d2{bottom:20px;left:-146px;width:344px;transform:rotate(-166deg)}
+
+.wrap{position:relative;z-index:1;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0}
+
+/* ---- header ---------------------------------------------------------- */
+.hello{padding-top:52px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.today{margin:2px 0 0;font-size:13px;color:var(--ink2);font-weight:500}
+.upto{display:inline-flex;align-items:center;gap:5px;font-size:15px;font-weight:600;
+  color:var(--tint);text-decoration:none;padding:2px 0}
+h1{font-size:28px;margin:0;font-weight:700;letter-spacing:-.7px}
+.themebtn{width:38px;height:38px;border-radius:19px;border:1px solid var(--card-line);
+  background:var(--card);color:var(--tint);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;flex:none;box-shadow:var(--card-shadow)}
+
+/* ---- the budget card ------------------------------------------------- */
+.cycle{background:var(--hero);color:var(--hero-ink);border-radius:22px;padding:20px;
+  display:flex;flex-direction:column;border:1px solid transparent;
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+:root[data-theme="dark"] .cycle{border-color:var(--card-line)}
+.cyctop{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-size:12px;color:var(--hero-dim);font-weight:500}
+.pill{font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap;
+  background:var(--hero-track);color:var(--hero-ink)}
+:root[data-theme="dark"] .pill{background:var(--tint);color:var(--on-tint)}
+.cycbig{font-size:42px;font-weight:700;letter-spacing:-1.5px;line-height:1;margin-top:18px}
+.cycsub{margin:5px 0 0;font-size:13px;color:var(--hero-dim)}
+.bar{height:6px;background:var(--hero-track);border-radius:3px;overflow:hidden;margin-top:18px}
+.bar i{display:block;height:100%;width:0;background:var(--hero-fill);border-radius:3px;transition:width .25s}
+.cycfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  margin-top:10px;font-size:12px;color:var(--hero-dim)}
+.cycfoot .budget{display:flex;align-items:center;gap:6px}
+.cycfoot .budget input{width:86px;padding:6px 9px;font-size:13px;text-align:right;
+  background:var(--hero-track);border:0;border-radius:9px;color:var(--hero-ink)}
+.cycfoot .owned{text-decoration:none;color:var(--hero-dim)}
+.cycfoot .owned b{background:var(--hero-track);color:var(--hero-ink);font-weight:600;
+  padding:6px 10px;border-radius:9px;margin-left:5px;display:inline-block}
+.basketline{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--hero-track);
+  font-size:12px;color:var(--hero-dim)}
+.basketline b{color:var(--hero-ink);font-weight:600}
+
+/* ---- surfaces -------------------------------------------------------- */
+input,select,textarea{background:var(--card);border:1px solid var(--card-line);
+  border-radius:12px;padding:11px;min-width:0;color:var(--ink);font:inherit}
+input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{
+  outline:2px solid var(--tint);outline-offset:2px}
+form{background:var(--card);border:1px solid var(--card-line);border-radius:18px;padding:14px;
+  display:grid;grid-template-columns:1fr 1fr;gap:9px;box-shadow:var(--card-shadow)}
+form .full{grid-column:1/-1}
+form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);min-width:0}
+.size{display:flex;gap:6px}.size input{flex:1;width:0}.size select{width:96px;padding:11px 6px}
+.addrow{grid-column:1/-1;display:flex;gap:9px}
+.add{flex:1;background:var(--tint);color:var(--on-tint);border:0;border-radius:13px;
+  padding:13px 8px;font-weight:600;font-size:16px;cursor:pointer;font-family:inherit}
+.add.scan{background:var(--tint-soft);color:var(--tint);box-shadow:none}
+:root[data-theme="dark"] .add.scan{color:var(--tint)}
+
+.listhead{display:flex;justify-content:space-between;align-items:center}
+.listhead h2{font-size:18px;margin:0;font-weight:700;letter-spacing:-.3px;
+  display:flex;align-items:baseline;gap:9px}
+.listhead h2 .num{font-size:14px;color:var(--ink2);font-weight:500}
+.ghost{background:var(--card);border:1px solid var(--card-line);border-radius:11px;
+  padding:7px 12px;font-size:13px;cursor:pointer;color:var(--ink);font-family:inherit}
+.confirm{color:var(--bad);border-color:var(--bad)}
+
+ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--card-line);
+  border-radius:18px;overflow:hidden;box-shadow:var(--card-shadow)}
+li{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:13px 15px;
+  border-bottom:1px solid var(--line)}
+li:last-child{border-bottom:0}
+.nm{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.ex{font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--tint-soft);
+  color:var(--tint);padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:2px}
+.meta{font-size:12px;color:var(--ink2);font-family:var(--mono)}
+.line{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.ctl{grid-column:1/-1;display:flex;align-items:center;gap:7px;margin-top:4px}
+.ctl button{width:32px;height:32px;border-radius:10px;border:1px solid var(--card-line);
+  background:transparent;color:var(--ink);cursor:pointer;font-size:17px;line-height:1}
+.ctl .q{min-width:26px;text-align:center;font-variant-numeric:tabular-nums}
+.ctl .del{margin-left:auto;width:auto;padding:0 11px;font-size:13px;color:var(--bad);border:0}
+.empty{padding:22px;text-align:center;color:var(--ink2)}
+.tip{font-size:12px;color:var(--ink2);line-height:1.5}
+
+.xfer{background:var(--card);border:1px solid var(--card-line);border-radius:18px;padding:14px;
+  display:flex;flex-direction:column;gap:9px;box-shadow:var(--card-shadow)}
+.xfer h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.3px}
+.xfer .tip{margin:0}
+textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box;resize:vertical}
+.xbtns{display:flex;gap:8px;flex-wrap:wrap}.xbtns .ghost{flex:1;padding:11px}
+
+/* ---- receipts -------------------------------------------------------- */
+.stack{display:flex;flex-direction:column;gap:14px}
+.sect{background:var(--card);border:1px solid var(--card-line);border-radius:18px;padding:16px;
+  box-shadow:var(--card-shadow)}
+.sect h2{font-size:17px;margin:0 0 10px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+.row2{display:flex;justify-content:space-between;gap:10px;padding:9px 0;
+  border-bottom:1px solid var(--line);font-size:15px}
+.row2:last-child{border-bottom:0}
+.row2 .n{min-width:0;overflow-wrap:anywhere}
+.row2 .s{display:block;font-size:12px;color:var(--ink2);margin-top:2px}
+.row2 .v{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.rcard{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;
+  text-align:left;background:var(--card);border:1px solid var(--card-line);border-radius:16px;
+  padding:14px 16px;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--card-shadow)}
+.rcard .when{font-weight:600;font-size:16px}
+.rcard .sub2{font-size:13px;color:var(--ink2)}
+.rcard .amt{font-family:var(--mono);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.back{background:none;border:0;color:var(--tint);font-weight:600;font-size:15px;padding:0;
+  cursor:pointer;text-align:left;font-family:inherit}
+.datefix{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;
+  color:var(--ink2);background:var(--card);border:1px solid var(--card-line);border-radius:16px;
+  padding:11px 14px;box-shadow:var(--card-shadow)}
+.datefix input{padding:7px 9px}
+.actions{display:flex;gap:8px}
+.actions .ghost{flex:1;padding:12px}
+.empty2{color:var(--ink2);font-size:13px;padding:6px 0;line-height:1.5}
+.search{width:100%;box-sizing:border-box}
+
+/* ---- the floating tab bar -------------------------------------------- */
+.tabs{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:4px;padding:5px;
+  border-radius:999px;background:var(--shell);border:1px solid var(--shell-line);
+  box-shadow:var(--shell-shadow);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+.tab{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:999px;border:0;
+  background:transparent;color:var(--ink2);font-size:14px;font-weight:600;cursor:pointer;
+  font-family:inherit}
+.tab.on{background:var(--tint);color:var(--on-tint)}
+
+/* ---- the review sheet ------------------------------------------------ */
+.sheet{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);display:flex;
+  align-items:flex-end;justify-content:center}
+.sheetbox{background:var(--bg);width:100%;max-width:520px;max-height:88vh;box-sizing:border-box;
+  display:flex;flex-direction:column;border-radius:26px 26px 0 0;border:1px solid var(--card-line);
+  border-bottom:0;padding:16px max(16px,env(safe-area-inset-left,0px))
+  calc(16px + env(safe-area-inset-bottom,0px))}
+.sheethead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.sheethead h2{font-size:18px;margin:0;font-weight:700;cursor:pointer;letter-spacing:-.3px}
+.sums{font-family:var(--mono);font-size:12px;color:var(--ink2);text-align:right;line-height:1.6;
+  white-space:nowrap}
+.sums b{color:var(--ink);font-weight:600}
+.sums b.off,.sums .off{color:var(--bad)}
+.rows{overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:2px 0}
+.rows .tip{margin:0}
+.r{display:grid;grid-template-columns:auto 1fr;gap:6px 9px;background:var(--card);
+  border:1px solid var(--card-line);border-radius:14px;padding:10px}
+.r>input[type=checkbox]{width:21px;height:21px;accent-color:var(--tint);margin:0;align-self:center;padding:0}
+.r .rn{grid-column:2}
+.r .rq{grid-column:2;display:flex;gap:8px}
+.r .rq label{flex:1;display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--ink2);min-width:0}
+.r input[type=text],.r input[type=number]{width:100%;box-sizing:border-box;padding:8px}
+.r.off{opacity:.45}
+.repl{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink);margin-top:10px;line-height:1.4}
+.repl input{width:19px;height:19px;accent-color:var(--tint);margin:0;padding:0;flex:none}
+.sheetbtns{display:flex;gap:8px;margin-top:12px}
+.sheetbtns button{flex:1}
+.sheetbtns .ghost{padding:13px}
+.sheetbtns button:disabled{opacity:.5}
+
+@media print{
+  body{background:#fff;color:#000;padding:0 12px}
+  .tabs,.decal,#pageBasket,#pageReceipts,.sheet,.actions,.back,.datefix,.tip{display:none!important}
+  .sect{border:0;padding:0;background:#fff;box-shadow:none}
+  .row2{border-bottom:1px solid #ccc}
+  .row2 .s,.sect h2{color:#555}
+  .pheader{display:block;margin:0 0 10px}
+  .pheader h1{font-size:18px}
+}
+.pheader{display:none}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<script src="js/decal.js"></script>
+
+<div class="wrap">
+<div id="pageBasket">
+  <header class="hello">
+    <div>
+      <a class="upto" href="index.html">
+        <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+        Budget Tracker
+      </a>
+      <h1 id="greet">Basket</h1>
+      <p class="today" id="today"></p>
+    </div>
+    <button type="button" class="themebtn" id="themeBtn" aria-label="Switch between light and dark">
+      <svg id="themeIcon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
+    </button>
+  </header>
+
+  <section class="cycle" id="meter">
+    <div class="cyctop">
+      <span id="cycRange"></span>
+      <span class="pill" id="cycDays"></span>
+    </div>
+    <div class="cycbig num" id="cycLeft">0</div>
+    <p class="cycsub" id="cycSub">still yours to spend this month</p>
+    <div class="bar"><i id="fill"></i></div>
+    <div class="cycfoot">
+      <span class="num" id="cycSpent"></span>
+      <label class="budget" id="budgetEdit" for="budget">Budget <input id="budget" class="num" type="number" inputmode="numeric" min="0" step="500" value="30000"></label>
+      <a class="budget owned" id="budgetOwned" href="index.html#budget-card" hidden>Budget <b class="num" id="budgetFigure">0</b></a>
+    </div>
+    <p class="basketline" id="basketLine" hidden></p>
+  </section>
+
+  <form id="f" autocomplete="off">
+    <label class="full" for="name">Item<input id="name" required placeholder="e.g. Jogoo maize flour"></label>
+    <label class="full" for="sizeN">Size<span class="size"><input id="sizeN" class="num" type="number" inputmode="decimal" step="any" min="0" placeholder="2"><select id="unit"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option><option>pack</option></select></span></label>
+    <label for="price">Price KSh<input id="price" class="num" type="number" inputmode="decimal" step="any" min="0" required placeholder="0"></label>
+    <label for="qty">Qty<input id="qty" class="num" type="number" inputmode="numeric" min="1" value="1"></label>
+    <div class="addrow">
+      <button class="add" type="submit">Add to basket</button>
+      <button class="add scan" type="button" id="scanBtn" hidden>Scan receipt</button>
+    </div>
+  </form>
+
+  <div class="listhead"><h2>In the basket <span class="num" id="basketTotal"></span></h2><button class="ghost" id="clear" type="button">Clear list</button></div>
+  <ul id="list"></ul>
+  <section class="xfer">
+    <h2>Move your list</h2>
+    <p class="tip">Tap <b>Copy my list</b>, open the other app, paste into this box there, then tap <b>Load pasted list</b>. <b>Copy everything</b> takes your receipts too &mdash; keep that somewhere safe before changing phones or reinstalling.</p>
+    <textarea id="code" rows="3" placeholder="Paste a copied list here"></textarea>
+    <div class="xbtns"><button type="button" class="ghost" id="copyBtn">Copy my list</button><button type="button" class="ghost" id="loadBtn">Load pasted list</button><button type="button" class="ghost" id="keepBtn">Save as a receipt</button><button type="button" class="ghost" id="backupBtn">Copy everything</button></div>
+    <p class="tip" id="xmsg" role="status"></p>
+  </section>
+  <section class="xfer" id="updateBox" hidden>
+    <h2>This app</h2>
+    <p class="tip" id="updateMsg">Version</p>
+    <div class="xbtns">
+      <button type="button" class="ghost" id="updateBtn">Check for updates</button>
+      <button type="button" class="ghost" id="installBtn" hidden>Install it</button>
+    </div>
+  </section>
+  <p class="tip">Paying by Lipa na M-Pesa (Buy Goods till) has no charge for you, so the "Left" figure is what you'll still have on M-Pesa after paying, if your budget is your M-Pesa balance. Your list stays saved in this browser.</p>
+</div>
+
+<div id="pageReceipts" hidden class="stack">
+  <input id="q" class="search" type="search" placeholder="Search everything you have bought - e.g. flour" aria-label="Search saved receipts">
+  <div class="sect" id="searchOut" hidden></div>
+  <div class="sect" id="months"></div>
+  <div class="sect" id="topItems"></div>
+  <div class="stack" id="receiptList"></div>
+</div>
+
+<div id="pageOne" hidden class="stack">
+  <button type="button" class="back" id="backToList">&lt; All receipts</button>
+  <div class="pheader"><h1>Basket Budget</h1></div>
+  <div class="sect" id="oneHead"></div>
+  <div class="sect" id="oneItems"></div>
+  <label class="datefix">Date on this receipt
+    <input type="date" id="oneDate" aria-label="Date on this receipt">
+  </label>
+  <div class="actions">
+    <button type="button" class="ghost" id="onePrint">Save as PDF</button>
+    <button type="button" class="ghost" id="oneLoad">Put in basket</button>
+    <button type="button" class="ghost" id="oneDelete">Delete</button>
+  </div>
+</div>
+</div>
+
+
+<nav class="tabs">
+  <button type="button" class="tab on" id="tabBasket">Basket</button>
+  <button type="button" class="tab" id="tabReceipts">Receipts</button>
+</nav>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheethead">
+      <h2 id="sheetTitle">From the receipt</h2>
+      <div class="sums" id="sums"></div>
+    </div>
+    <div class="rows" id="rows"></div>
+    <p class="tip" id="sheetMsg" role="status"></p>
+    <label class="repl" id="replWrap" hidden>
+      <input type="checkbox" id="replBox"><span id="replText"></span>
+    </label>
+    <div class="sheetbtns">
+      <button type="button" class="ghost" id="sheetCancel">Cancel</button>
+      <button type="button" class="add" id="sheetAdd">Add items</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY='basket-budget-v1';
+const fmt=n=>Math.round(n).toLocaleString('en-KE');
+const fmt2=n=>(Math.round(n*100)/100).toLocaleString('en-KE');
+let state={budget:30000,items:[
+  {id:1,name:'Maize flour',size:2,unit:'kg',price:165,qty:2,ex:true},
+  {id:2,name:'Fresh milk',size:500,unit:'ml',price:60,qty:4,ex:true},
+  {id:3,name:'Cooking oil',size:1,unit:'L',price:340,qty:1,ex:true}
+]};
+try{const s=localStorage.getItem(KEY);if(s)state=JSON.parse(s)}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+const $=id=>document.getElementById(id);
+$('budget').value=state.budget;
+
+/* The Android wrapper, when there is one. In a plain browser every call below
+   is skipped and the page behaves exactly as it always did. */
+const and=()=>window.Android; // looked up on each call, never captured
+const bridge=m=>{try{const a=and();return !!(a&&typeof a[m]==='function')}catch(e){return false}};
+const sheetFlag=open=>{if(bridge('setSheetOpen')){try{and().setSheetOpen(open)}catch(e){}}};
+
+function unitPrice(it){
+  if(!it.size)return '';
+  const map={kg:[1,'kg'],g:[1000,'kg'],L:[1,'L'],ml:[1000,'L']};
+  if(map[it.unit]){const per=it.price/(it.size/map[it.unit][0]);return ' · '+fmt2(per)+'/'+map[it.unit][1]}
+  return '';
+}
+function render(){
+  const basket=state.items.reduce((s,i)=>s+i.price*i.qty,0);
+  $('basketTotal').textContent=basket?fmt(basket):'';
+  renderCycle(basket);
+  publishGlance();
+  const ul=$('list');ul.innerHTML='';
+  if(!state.items.length){ul.innerHTML='<li class="empty" style="display:block">Nothing yet. Add your first item above.</li>';return}
+  state.items.forEach(it=>{
+    const li=document.createElement('li');
+    const sz=it.size?`${it.size}${it.unit} · `:'';
+    li.innerHTML=`<div class="nm"></div><div class="line num">${fmt(it.price*it.qty)}</div>
+      <div class="meta">${sz}@ ${fmt2(it.price)}${unitPrice(it)}</div><div></div>
+      <div class="ctl"><button type="button" data-a="-" aria-label="One less">−</button><span class="q num">${it.qty}</span><button type="button" data-a="+" aria-label="One more">+</button><button type="button" class="del" data-a="x">Remove</button></div>`;
+    li.querySelector('.nm').textContent=it.name;
+    if(it.ex)li.querySelector('.nm').insertAdjacentHTML('beforeend','<span class="ex">example</span>');
+    li.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
+      const a=btn.dataset.a;
+      if(a==='+')it.qty++;
+      if(a==='-'){it.qty--;if(it.qty<1)state.items=state.items.filter(x=>x!==it)}
+      if(a==='x')state.items=state.items.filter(x=>x!==it);
+      save();render();
+    });
+    ul.appendChild(li);
+  });
+}
+$('budget').oninput=e=>{state.budget=+e.target.value||0;save();render()};
+
+/* ---- The month, as Jose counts it ------------------------------------- */
+/* His budget runs from the 28th to the 27th, so a shop on the 29th belongs
+   to the cycle that opened the day before, not to the calendar month. */
+const CYCLE_DAY=28;
+function cycleOf(when){
+  const start=new Date(when.getFullYear(),when.getMonth(),CYCLE_DAY);
+  if(when.getDate()<CYCLE_DAY)start.setMonth(start.getMonth()-1);
+  const end=new Date(start.getFullYear(),start.getMonth()+1,CYCLE_DAY-1);
+  return {start:start,end:end};
+}
+const shortDate=s=>{const p=s.split('-').map(Number);return p[2]+' '+MONTHS[p[1]-1].slice(0,3)};
+
+/* Basket used to carry its own budget figure. It is one app now, and the
+   tracker is where a month is reckoned from the statements - so Groceries
+   comes from there: the amount, and what has already gone on it this cycle.
+   That figure is the honest one, because it counts every shop M-PESA paid
+   for, not only the slips that were scanned.
+
+   Same origin, so this is just a read; the tracker writes it on every render.
+   With no tracker data yet, the old local budget still works. */
+const GKEY='mpesa-tracker.glance';
+function trackerGlance(){
+  try{
+    const g=JSON.parse(localStorage.getItem(GKEY)||'null');
+    if(!g||!(+g.groceriesBudget>0)||!g.cycleFrom||!g.cycleTo)return null;
+    return g;
+  }catch(e){return null}
+}
+
+/* And back the other way: what is in the trolley, for the tracker's home. */
+const BGKEY='basket.glance';
+function publishGlance(){
+  const real=state.items.filter(i=>!i.ex);
+  try{
+    localStorage.setItem(BGKEY,JSON.stringify({
+      at:new Date().toISOString(),
+      items:real.length,
+      total:real.reduce((s,i)=>s+i.price*i.qty,0),
+      receipts:receipts.length,
+      lastShop:receipts.length?receipts[0].date:null
+    }));
+  }catch(e){}
+}
+
+function renderCycle(basket){
+  const now=new Date();
+  const g=trackerGlance();
+  let from,to,spent,budget;
+  if(g){
+    from=g.cycleFrom;to=g.cycleTo;
+    budget=+g.groceriesBudget||0;
+    spent=+g.groceriesSpent||0;
+  }else{
+    const c=cycleOf(now);
+    from=iso(c.start);to=iso(c.end);
+    /* Without the tracker all that is known here is the slips that were
+       scanned, which is a floor on the real figure, not the figure. */
+    spent=receipts.filter(r=>r.date>=from&&r.date<=to)
+      .reduce((s,r)=>s+receiptSum(r),0);
+    budget=+state.budget||0;
+  }
+  const left=budget-spent;
+  const pct=budget?Math.min(100,spent/budget*100):0;
+  const days=Math.max(0,Math.round((Date.parse(to)-Date.parse(iso(now)))/86400000));
+
+  $('cycRange').textContent=(g?'Groceries · ':'')+shortDate(from)+' – '+shortDate(to);
+  $('cycDays').textContent=days===0?'last day':days+(days===1?' day left':' days left');
+  $('cycLeft').textContent=fmt(Math.abs(left));
+  $('cycSub').textContent=left<0?'over your budget this month':'still yours to spend this month';
+  $('cycSpent').textContent=fmt(spent)+' spent'+(g?' this month':'');
+  $('fill').style.width=pct+'%';
+  $('fill').style.background=left<0?'var(--bad)':pct>=85?'var(--warn)':'var(--hero-fill)';
+  $('cycLeft').style.color=left<0?'var(--bad)':'var(--hero-ink)';
+
+  /* The figure is the tracker's, so it is shown there rather than typed here.
+     Two places to edit one number is how they end up disagreeing. */
+  $('budgetEdit').hidden=!!g;
+  $('budgetOwned').hidden=!g;
+  if(g)$('budgetFigure').textContent=fmt(budget);
+  else $('budget').value=state.budget;
+
+  const line=$('basketLine');
+  if(basket>0&&budget>0){
+    line.hidden=false;
+    const after=left-basket;
+    line.innerHTML='This trolley of <b>'+fmt(basket)+'</b> would leave <b>'+
+      fmt(Math.abs(after))+'</b>'+(after<0?' over your budget.':' for the rest of the month.');
+  }else if(basket>0){
+    line.hidden=false;
+    line.innerHTML='This trolley comes to <b>'+fmt(basket)+'</b>.';
+  }else line.hidden=true;
+}
+
+/* ---- Light or dark, Jose's choice ------------------------------------- */
+const TKEY='basket-theme';
+const SUN='<circle cx="12" cy="12" r="4.2"></circle><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path>';
+const MOON='<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path>';
+function applyTheme(mode){
+  document.documentElement.setAttribute('data-theme',mode);
+  /* The icon shows what tapping gives you, not where you are. */
+  $('themeIcon').innerHTML=mode==='dark'?SUN:MOON;
+  try{localStorage.setItem(TKEY,mode)}catch(e){}
+  /* The status bar is Android's, so it has to be told. */
+  if(bridge('setChrome')){
+    try{and().setChrome(mode==='dark'?'#000000':'#F2F2F7',mode==='dark')}catch(e){}
+  }
+}
+function startTheme(){
+  let mode=null;
+  try{mode=localStorage.getItem(TKEY)}catch(e){}
+  if(mode!=='light'&&mode!=='dark'){
+    mode=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+  }
+  applyTheme(mode);
+}
+$('themeBtn').onclick=()=>
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+
+function greet(){
+  const now=new Date();
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  $('today').textContent=days[now.getDay()]+', '+now.getDate()+' '+MONTHS[now.getMonth()];
+}
+$('f').onsubmit=e=>{
+  e.preventDefault();
+  const price=parseFloat($('price').value);if(!(price>=0))return;
+  state.items=state.items.filter(i=>!i.ex);
+  state.items.unshift({id:Date.now(),name:$('name').value.trim(),size:parseFloat($('sizeN').value)||0,unit:$('unit').value,price,qty:Math.max(1,parseInt($('qty').value)||1)});
+  save();render();
+  $('name').value='';$('sizeN').value='';$('price').value='';$('qty').value=1;$('name').focus();
+};
+let armed=false;
+$('clear').onclick=()=>{
+  const b=$('clear');
+  if(!armed){armed=true;b.textContent='Tap again to clear';b.classList.add('confirm');setTimeout(()=>{armed=false;b.textContent='Clear list';b.classList.remove('confirm')},3000);return}
+  state.items=[];armed=false;b.textContent='Clear list';b.classList.remove('confirm');save();render();
+};
+const msg=t=>{$('xmsg').textContent=t};
+function putOnClipboard(text,done){
+  const ta=$('code');
+  ta.value=text;
+  const sel=()=>{ta.focus();ta.select();try{document.execCommand('copy')}catch(e){}};
+  const viaAndroid=()=>{
+    if(bridge('copyToClipboard')){try{and().copyToClipboard(ta.value);done();return true}catch(e){}}
+    return false;
+  };
+  const fallback=()=>{if(!viaAndroid()){sel();msg('Text is selected in the box. Long-press it and tap Copy.')}};
+  try{navigator.clipboard.writeText(ta.value).then(done,fallback)}catch(e){fallback()}
+}
+$('backupBtn').onclick=()=>{
+  putOnClipboard('BASKET2:'+JSON.stringify({
+    budget:state.budget,
+    items:state.items.filter(i=>!i.ex),
+    receipts:receipts
+  }),()=>msg('Copied your basket and all '+receipts.length+
+    (receipts.length===1?' receipt':' receipts')+'. Paste it somewhere safe.'));
+};
+$('copyBtn').onclick=()=>{
+  const ta=$('code');
+  ta.value='BASKET1:'+JSON.stringify({budget:state.budget,items:state.items.filter(i=>!i.ex)});
+  const sel=()=>{ta.focus();ta.select();try{document.execCommand('copy')}catch(e){}};
+  const ok=()=>msg('Copied. Now paste it in the other app.');
+  // A WebView can refuse navigator.clipboard, so Android's own clipboard is
+  // the next thing tried, and hand-selection the last.
+  const viaAndroid=()=>{
+    if(bridge('copyToClipboard')){try{and().copyToClipboard(ta.value);ok();return true}catch(e){}}
+    return false;
+  };
+  const fallback=()=>{if(!viaAndroid()){sel();msg('Text is selected in the box. Long-press it and tap Copy.')}};
+  try{
+    navigator.clipboard.writeText(ta.value).then(ok,fallback);
+  }catch(e){fallback()}
+};
+$('loadBtn').onclick=()=>{
+  try{
+    let t=$('code').value.trim();
+    if(t.startsWith('BASKET1:')||t.startsWith('BASKET2:'))t=t.slice(8);
+    const d=JSON.parse(t);
+    if(!Array.isArray(d.items))throw 0;
+    const loaded=d.items.map(i=>({id:i.id||Date.now()+Math.random(),name:String(i.name||'Item'),size:+i.size||0,unit:i.unit||'pcs',price:+i.price||0,qty:Math.max(1,+i.qty||1)}));
+    state={budget:(d.budget!=null?+d.budget:state.budget)||0,items:loaded};
+    $('budget').value=state.budget;
+    let note='Loaded '+loaded.length+' items.';
+    // A full backup brings the receipts back with it.
+    if(Array.isArray(d.receipts)){
+      receipts=d.receipts.filter(r=>r&&r.date&&Array.isArray(r.items));
+      receipts.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+      saveReceipts();renderReceipts();
+      note+=' Restored '+receipts.length+(receipts.length===1?' receipt.':' receipts.');
+    }
+    // A pasted list can carry the day it was bought, and then it is kept as a
+    // receipt too rather than only filling the basket.
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(d.date||''))){
+      storeReceipt(loaded,d.date,d.slipTotal==null?null:+d.slipTotal,d.lineCount==null?null:+d.lineCount);
+      note+=' Saved under Receipts as '+prettyDate(d.date)+'.';
+    }
+    save();render();$('code').value='';
+    msg(note);
+  }catch(e){msg('That text is not a copied list. Copy it again with the Copy my list button and paste the whole thing.')}
+};
+
+/* ---- Scan receipt ----------------------------------------------------- */
+let scanned=[], receiptTotal=null, lineCount=null, scanMsg='', rawRows=[];
+
+if(bridge('scanReceipt'))$('scanBtn').hidden=false;
+$('scanBtn').onclick=()=>{try{and().scanReceipt()}catch(e){}};
+
+const openSheet=()=>{$('sheet').hidden=false;sheetFlag(true)};
+const closeSheet=()=>{$('sheet').hidden=true;sheetFlag(false);scanned=[];receiptTotal=null;lineCount=null;scanMsg='';rawRows=[]};
+/* Android's back button calls this first; true means it closed something. */
+window.bbCloseSheet=()=>{if($('sheet').hidden)return false;closeSheet();return true};
+
+window.onReceiptScanning=()=>{
+  scanned=[];receiptTotal=null;lineCount=null;scanMsg='';rawRows=[];
+  $('rows').innerHTML='';$('sums').innerHTML='';
+  $('sheetMsg').textContent='Reading the receipt…';
+  $('sheetAdd').hidden=true;$('sheetCancel').textContent='Cancel';
+  openSheet();
+};
+
+window.onReceiptScanned=payload=>{
+  const d=Array.isArray(payload)?{items:payload,receiptTotal:null}:(payload||{});
+  scanned=(d.items||[]).map(i=>({
+    on:true,
+    name:String(i.name||'Item'),
+    qty:Math.max(1,parseInt(i.qty)||1),
+    price:+i.price||0
+  }));
+  receiptTotal=(d.receiptTotal==null)?null:+d.receiptTotal;
+  lineCount=(d.lineCount==null)?null:+d.lineCount;
+  rawRows=Array.isArray(d.rows)?d.rows:[];
+  scanMsg=d.message?String(d.message):'';
+  drawSheet();
+  openSheet();
+};
+
+function drawSheet(){
+  const rows=$('rows');rows.innerHTML='';
+  $('sheetAdd').hidden=!scanned.length;
+  if(!scanned.length){
+    $('sums').innerHTML='';
+    $('sheetCancel').textContent='Close';
+    $('sheetMsg').textContent='';
+    const p=document.createElement('p');
+    p.className='tip';
+    p.textContent=scanMsg||'Nothing could be read off that photo. It works best with the slip flat, well lit, and filling the frame.';
+    rows.appendChild(p);
+    if(bridge('scanReceipt')){
+      const b=document.createElement('button');
+      b.type='button';b.className='add';b.textContent='Try another photo';
+      b.onclick=()=>{closeSheet();try{and().scanReceipt()}catch(e){}};
+      rows.appendChild(b);
+    }
+    return;
+  }
+  $('sheetCancel').textContent='Cancel';
+  // Scanning a second time must not stack a whole shop on top of the first.
+  const already=state.items.filter(i=>!i.ex).length;
+  $('replWrap').hidden=!already;
+  $('replBox').checked=false;
+  $('replText').textContent='Clear the '+already+(already===1?' item':' items')+
+    ' already in my basket first';
+  scanned.forEach(it=>{
+    const r=document.createElement('div');
+    r.className='r';
+    r.innerHTML=`<input type="checkbox" checked aria-label="Include this item">
+      <input class="rn" type="text" aria-label="Item name">
+      <div class="rq"><label>Qty<input type="number" min="1" inputmode="numeric" class="num" value="${it.qty}"></label>
+      <label>Price KSh<input type="number" min="0" step="any" inputmode="decimal" class="num" value="${it.price}"></label></div>`;
+    const cb=r.querySelector('input[type=checkbox]'), nm=r.querySelector('.rn');
+    const qp=r.querySelectorAll('.rq input'), q=qp[0], p=qp[1];
+    nm.value=it.name; // set as a value, never as markup: this text came off a photo
+    cb.onchange=()=>{it.on=cb.checked;r.className='r'+(it.on?'':' off');sums()};
+    nm.oninput=()=>{it.name=nm.value};
+    q.oninput=()=>{it.qty=Math.max(1,parseInt(q.value)||1);sums()};
+    p.oninput=()=>{it.price=parseFloat(p.value)||0;sums()};
+    rows.appendChild(r);
+  });
+  sums();
+}
+
+function sums(){
+  const on=scanned.filter(i=>i.on);
+  const t=on.reduce((s,i)=>s+i.price*i.qty,0);
+  // The slip's own total against the rows that are ticked, so a misread shows.
+  const gap=receiptTotal==null?0:Math.round(receiptTotal-t);
+  if(receiptTotal==null)$('sums').innerHTML='Your list <b>'+fmt(t)+'</b>';
+  else $('sums').innerHTML='Slip total <b>'+fmt(receiptTotal)+'</b><br>Your list <b class="'+
+    (Math.abs(gap)>1?'off':'')+'">'+fmt(t)+'</b>';
+  // The slip counts its own lines, so a short read is visible rather than guessed.
+  if(lineCount!=null){
+    const short=scanned.length<lineCount;
+    $('sums').innerHTML+='<br><span class="'+(short?'off':'')+'">'+
+      scanned.length+' of '+lineCount+' lines</span>';
+  }
+  $('sheetAdd').textContent='Add '+on.length+(on.length===1?' item':' items');
+  $('sheetAdd').disabled=!on.length;
+  // Say what the difference means, rather than leaving two numbers to compare.
+  $('sheetMsg').textContent=
+    receiptTotal==null?'Check these against the slip. Untick anything you do not want.':
+    Math.abs(gap)<=1?'This matches the slip. Untick anything you do not want.':
+    gap>0?'KSh '+fmt(gap)+' less than the slip, so some lines were not read. Add those by hand, or photograph the slip again with the sections overlapping. Tap the title above to copy exactly what the camera read.':
+    'KSh '+fmt(-gap)+' more than the slip, so something was read twice. Untick the repeats.';
+}
+
+const sameThing=n=>String(n).toLowerCase().replace(/[^a-z0-9]/g,'');
+$('sheetAdd').onclick=()=>{
+  const add=scanned.filter(i=>i.on&&i.name.trim()&&i.price>0);
+  if(!add.length)return;
+  state.items=$('replBox').checked?[]:state.items.filter(i=>!i.ex);
+  // Re-reading the same slip updates the lines it put there before, rather
+  // than leaving two of everything.
+  const incoming=new Set(add.map(i=>sameThing(i.name)));
+  state.items=state.items.filter(i=>!incoming.has(sameThing(i.name)));
+  // Reversed, so the first row on the receipt ends up at the top of the list.
+  add.slice().reverse().forEach((i,k)=>state.items.unshift(
+    {id:Date.now()+k,name:i.name.trim(),size:0,unit:'pcs',price:i.price,qty:i.qty}));
+  keepReceipt(add);
+  closeSheet();save();render();
+};
+// Copies the camera's own text, which is the only way to tell a misread
+// apart from a line the camera never saw.
+$('sheetTitle').onclick=()=>{
+  if(!rawRows.length)return;
+  const text=rawRows.join(String.fromCharCode(10));
+  const done=()=>{$('sheetMsg').textContent='Copied what the camera read ('+rawRows.length+' rows). Paste it anywhere.'};
+  if(bridge('copyToClipboard')){try{and().copyToClipboard(text);done();return}catch(e){}}
+  try{navigator.clipboard.writeText(text).then(done,()=>{})}catch(e){}
+};
+$('sheetCancel').onclick=()=>closeSheet();
+$('sheet').onclick=e=>{if(e.target===$('sheet'))closeSheet()};
+
+/* ---- Updates --------------------------------------------------------- */
+/* The one thing in the app that uses the network, and only when tapped. */
+if(bridge('appVersion')){
+  $('updateBox').hidden=false;
+  let version='';
+  try{version=and().appVersion()}catch(e){}
+  $('updateMsg').textContent='Version '+version+'. Updates come from the project on GitHub.';
+  $('updateBtn').onclick=()=>{
+    $('updateMsg').textContent='Checking…';
+    $('installBtn').hidden=true;
+    try{and().checkUpdate()}catch(e){$('updateMsg').textContent='Could not check just now.'}
+  };
+  $('installBtn').onclick=()=>{try{and().installUpdate()}catch(e){}};
+}
+window.onUpdateStatus=(message,canInstall)=>{
+  $('updateMsg').textContent=String(message);
+  $('installBtn').hidden=!canInstall;
+};
+
+/* ---- Saved receipts --------------------------------------------------- */
+const RKEY='basket-receipts-v1';
+let receipts=[];
+try{const r=localStorage.getItem(RKEY);if(r)receipts=JSON.parse(r)||[]}catch(e){}
+const saveReceipts=()=>{try{localStorage.setItem(RKEY,JSON.stringify(receipts))}catch(e){}};
+
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const prettyDate=s=>{const p=s.split('-').map(Number);return p[2]+' '+MONTHS[p[1]-1]+' '+p[0]};
+const prettyMonth=s=>{const p=s.split('-').map(Number);return MONTHS[p[1]-1]+' '+p[0]};
+
+/* The slip carries three dates: the fiscal header's "29 Oct 2026", the loyalty
+   slip's "As At 28-10-2026" (when the POINTS balance was struck, not when you
+   shopped) and the control unit's "10-29-2026" in month-day order. The header
+   is the only one that means this shop, and a month spelt out cannot be read
+   back to front, so it is looked for first. */
+function receiptDate(rows){
+  const text=rows||[];
+  const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const pad=v=>String(v).padStart(2,'0');
+  const make=(y,mo,d)=>{
+    if(y<100)y+=2000;
+    if(mo>12&&d<=12){const t=d;d=mo;mo=t}
+    if(mo<1||mo>12||d<1||d>31||y<2000||y>2100)return null;
+    return y+'-'+pad(mo)+'-'+pad(d);
+  };
+  const named=/(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})/;
+  for(const row of text){
+    const m=named.exec(row);
+    if(!m)continue;
+    const mo=MON[m[2].slice(0,3).toLowerCase()];
+    if(!mo)continue;
+    const got=make(+m[3],mo,+m[1]);
+    if(got)return got;
+  }
+  const numeric=/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/;
+  for(const row of text){
+    if(/\bas\s+at\b|points/i.test(row))continue;
+    const m=numeric.exec(row);
+    if(!m)continue;
+    const got=make(+m[3],+m[2],+m[1]);
+    if(got)return got;
+  }
+  return iso(new Date());
+}
+
+function storeReceipt(items,date,slipTotal,lines){
+  receipts.unshift({
+    id:'r'+Date.now(),
+    date:date,
+    savedAt:new Date().toISOString(),
+    slipTotal:slipTotal,
+    lineCount:lines,
+    items:items.map(i=>({name:String(i.name).trim(),qty:i.qty,price:i.price}))
+  });
+  receipts.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  saveReceipts();
+  renderReceipts();
+  render();
+  return receipts[0];
+}
+function keepReceipt(items){
+  storeReceipt(items,receiptDate(rawRows),receiptTotal,lineCount);
+}
+
+const lineTotalOf=i=>i.price*i.qty;
+const receiptSum=r=>r.items.reduce((s,i)=>s+lineTotalOf(i),0);
+
+/* A row of name + amount, with the name set as text and never as markup. */
+function row2(name, sub, amount){
+  const row=document.createElement('div');
+  row.className='row2';
+  row.innerHTML='<span class="n"></span><span class="v">'+fmt(amount)+'</span>';
+  const n=row.querySelector('.n');
+  n.textContent=name;
+  if(sub){const s=document.createElement('span');s.className='s';s.textContent=sub;n.appendChild(s)}
+  return row;
+}
+
+/* ---- the three views -------------------------------------------------- */
+function show(which){
+  $('pageBasket').hidden=which!=='basket';
+  $('pageReceipts').hidden=which!=='receipts';
+  $('pageOne').hidden=which!=='one';
+  $('tabBasket').className='tab'+(which==='basket'?' on':'');
+  $('tabReceipts').className='tab'+(which==='basket'?'':' on');
+  window.scrollTo(0,0);
+}
+$('tabBasket').onclick=()=>show('basket');
+$('tabReceipts').onclick=()=>{renderReceipts();show('receipts')};
+$('backToList').onclick=()=>show('receipts');
+
+function renderReceipts(){
+  const list=$('receiptList');
+  list.innerHTML='';
+  if(!receipts.length){
+    list.innerHTML='<p class="empty2">No receipts yet. Scan one and it is kept here with its date, so you can look back at what you bought.</p>';
+  }
+  receipts.forEach(r=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='rcard';
+    const n=r.items.length;
+    b.innerHTML='<span><span class="when"></span><br><span class="sub2">'+
+      n+(n===1?' item':' items')+'</span></span><span class="amt">'+fmt(receiptSum(r))+'</span>';
+    b.querySelector('.when').textContent=prettyDate(r.date);
+    b.onclick=()=>openReceipt(r.id);
+    list.appendChild(b);
+  });
+  renderMonths();
+  renderTop();
+  runSearch();
+}
+
+function renderMonths(){
+  // Grouped by Jose's own month, the 28th to the 27th, so these add up to
+  // what the budget card on the Basket tab is counting.
+  const by={};
+  receipts.forEach(r=>{
+    const p=r.date.split('-').map(Number);
+    const c=cycleOf(new Date(p[0],p[1]-1,p[2]));
+    const k=iso(c.start);
+    if(!by[k])by[k]={total:0,n:0,from:k,to:iso(c.end),end:c.end};
+    by[k].total+=receiptSum(r);
+    by[k].n++;
+  });
+  const keys=Object.keys(by).sort().reverse();
+  const box=$('months');
+  box.innerHTML='<h2>Spent each month</h2>';
+  if(!keys.length){box.innerHTML+='<p class="empty2">Nothing yet.</p>';return}
+  keys.forEach(k=>{
+    const c=by[k];
+    const name=MONTHS[c.end.getMonth()]+' '+c.end.getFullYear();
+    box.appendChild(row2(name,
+      shortDate(c.from)+' – '+shortDate(c.to)+' · '+c.n+(c.n===1?' receipt':' receipts'),
+      c.total));
+  });
+}
+
+function renderTop(){
+  const by={};
+  receipts.forEach(r=>r.items.forEach(i=>{
+    const k=i.name.toLowerCase();
+    if(!by[k])by[k]={name:i.name,total:0,qty:0};
+    by[k].total+=lineTotalOf(i);
+    by[k].qty+=i.qty;
+  }));
+  const top=Object.keys(by).map(k=>by[k]).sort((a,b)=>b.total-a.total).slice(0,8);
+  const box=$('topItems');
+  box.innerHTML='<h2>What costs you the most</h2>';
+  if(!top.length){box.innerHTML+='<p class="empty2">Nothing yet.</p>';return}
+  top.forEach(t=>box.appendChild(row2(t.name, t.qty+' bought in all', t.total)));
+}
+
+function runSearch(){
+  const term=$('q').value.trim().toLowerCase();
+  const out=$('searchOut');
+  if(!term){out.hidden=true;out.innerHTML='';return}
+  const hits=[];
+  receipts.forEach(r=>r.items.forEach(i=>{
+    if(i.name.toLowerCase().indexOf(term)>=0)hits.push({date:r.date,item:i});
+  }));
+  hits.sort((a,b)=>a.date<b.date?1:-1);
+  out.hidden=false;
+  out.innerHTML='';
+  const head=document.createElement('h2');
+  if(!hits.length){
+    head.textContent='Nothing matching that';
+    out.appendChild(head);
+    const p=document.createElement('p');
+    p.className='empty2';
+    p.textContent='No saved receipt has an item with that in its name.';
+    out.appendChild(p);
+    return;
+  }
+  const total=hits.reduce((s,h)=>s+lineTotalOf(h.item),0);
+  head.textContent=hits.length+(hits.length===1?' line':' lines')+' · '+fmt(total)+' in all';
+  out.appendChild(head);
+  hits.forEach(h=>out.appendChild(
+    row2(h.item.name, prettyDate(h.date)+' · '+h.item.qty+' @ '+fmt2(h.item.price),
+      lineTotalOf(h.item))));
+}
+$('q').oninput=runSearch;
+
+let armedKeep=false;
+$('keepBtn').onclick=()=>{
+  const items=state.items.filter(i=>!i.ex);
+  if(!items.length){msg('Nothing in the basket to save.');return}
+  const b=$('keepBtn');
+  if(!armedKeep){
+    armedKeep=true;b.textContent='Tap again to save';
+    setTimeout(()=>{armedKeep=false;b.textContent='Save as a receipt'},3000);
+    return;
+  }
+  armedKeep=false;b.textContent='Save as a receipt';
+  const r=storeReceipt(items,iso(new Date()),null,null);
+  msg('Saved under Receipts as '+prettyDate(r.date)+'.');
+};
+
+/* ---- one receipt, which is also what gets printed ---------------------- */
+let openId=null;
+function openReceipt(id){
+  let r=null;
+  receipts.forEach(x=>{if(x.id===id)r=x});
+  if(!r)return;
+  openId=id;
+  const sum=receiptSum(r);
+  const head=$('oneHead');
+  head.innerHTML='<h2>Receipt</h2>';
+  head.appendChild(row2('Date','',0)).querySelector('.v').textContent=prettyDate(r.date);
+  head.appendChild(row2('Items','',r.items.length));
+  head.appendChild(row2('Total','',sum));
+  if(r.slipTotal!=null&&Math.abs(r.slipTotal-sum)>1)
+    head.appendChild(row2('Printed on the slip','',r.slipTotal));
+
+  $('oneDate').value=r.date;
+  const box=$('oneItems');
+  box.innerHTML='<h2>What you bought</h2>';
+  r.items.forEach(i=>box.appendChild(
+    row2(i.name, i.qty>1?(i.qty+' @ '+fmt2(i.price)):'', lineTotalOf(i))));
+  show('one');
+}
+
+$('oneDate').onchange=()=>{
+  const v=$('oneDate').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return;
+  receipts.forEach(x=>{if(x.id===openId)x.date=v});
+  receipts.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  saveReceipts();renderReceipts();openReceipt(openId);
+};
+$('onePrint').onclick=()=>{
+  let r=null;
+  receipts.forEach(x=>{if(x.id===openId)r=x});
+  const name='Receipt '+(r?r.date:'');
+  if(bridge('printPage')){try{and().printPage(name);return}catch(e){}}
+  try{window.print()}catch(e){}
+};
+$('oneLoad').onclick=()=>{
+  let r=null;
+  receipts.forEach(x=>{if(x.id===openId)r=x});
+  if(!r)return;
+  state.items=r.items.map((i,k)=>({id:Date.now()+k,name:i.name,size:0,unit:'pcs',price:i.price,qty:i.qty}));
+  save();render();show('basket');
+};
+let armedDel=false;
+$('oneDelete').onclick=()=>{
+  const b=$('oneDelete');
+  if(!armedDel){
+    armedDel=true;b.textContent='Tap again to delete';b.classList.add('confirm');
+    setTimeout(()=>{armedDel=false;b.textContent='Delete';b.classList.remove('confirm')},3000);
+    return;
+  }
+  receipts=receipts.filter(x=>x.id!==openId);
+  armedDel=false;b.textContent='Delete';b.classList.remove('confirm');
+  saveReceipts();renderReceipts();show('receipts');
+};
+
+startTheme();
+greet();
+render();
+renderReceipts();
+</script>
+
+</body></html>

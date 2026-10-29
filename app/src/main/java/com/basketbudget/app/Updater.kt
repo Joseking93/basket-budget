@@ -15,7 +15,7 @@ import java.net.URL
 object Updater {
 
     private const val LATEST =
-        "https://api.github.com/repos/Joseking93/basket-budget/releases/latest"
+        "https://api.github.com/repos/Joseking93/budget-tracker/releases/latest"
 
     data class Release(val version: String, val apkUrl: String, val notes: String)
 
