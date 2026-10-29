@@ -469,6 +469,28 @@ const NOT_A_TRANSACTION = [
   /loan limit is/i,
   /do not qualify/i,
   /loan (?:no\.?|number)?\s*\d+ is now fully paid/i,
+
+  // Advertising. A lender with your number sends a great deal of it, and none
+  // of it is money.
+  /need extra cash/i,
+  /pata extra cash/i,
+  /more bills\?/i,
+  /sort your financial needs/i,
+  /do not miss out/i,
+  /amazing offer/i,
+  /cashback/i,
+  /worry not/i,
+  /STOP ?\*\d/i,
+  /sender name KCB/i,
+  /select Loans\s+(?:and\s+)?Savings/i,
+  /Dial \*\d+#/i,
+
+  // Loan paperwork: the facility, its fee, its due date, its balance. The money
+  // itself moves through the wallet and is recorded there.
+  /facility fee/i,
+  /has been processed and sent to your/i,
+  /has a balance of KES [\d,.]+ which is due/i,
+  /savings Account to M-?PESA/i,
 ];
 
 /**
@@ -517,6 +539,7 @@ const STAMP_RE = /^#at (\d+)(?:[^\S\n]+([^\n]*))?\n?/;
 /** Which account a sender's messages belong to; absent means the wallet. */
 const ACCOUNTS = {
   KCB: 'kcb',
+  'KCB M-PESA': 'kcb',
   STANCHART: 'stanchart',
 };
 
@@ -527,8 +550,11 @@ function stripStamp(block) {
   return {
     body: block.slice(m[0].length).trim(),
     at: new Date(Number(m[1])).toISOString(),
-    // "KCB M-PESA" is a Safaricom loan product, not the bank's own account; its
-    // money moves through the wallet and the wallet's messages already say so.
+    // "KCB M-PESA" is a loan product rather than the bank's own account, but
+    // it is still KCB talking: its messages are loan paperwork and offers, and
+    // the money itself moves through the wallet, which records it. Left
+    // unmapped, every one of them was read as if M-PESA had sent it and landed
+    // in the not-recognised pile - 100 of the last 136.
     account: ACCOUNTS[sender] || null,
   };
 }
