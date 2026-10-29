@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
     /** Set when the home-screen widget asked for a scan before the page loaded. */
     private var scanOnLoad = false
 
+    /** The inbox widget asked for a read, so the next one is NOT quiet. */
+    private var readOnLoad = false
+
     /** Whether the SMS read that is waiting on permission wants the whole inbox. */
     private var smsReadAll = false
 
@@ -255,7 +258,21 @@ class MainActivity : ComponentActivity() {
                 // Once the permission is given, keep the tracker current by
                 // itself: whatever M-PESA has sent since the last look is read
                 // on the way in, and says nothing when there is nothing new.
-                if (url.endsWith(HOME_PAGE) && hasSms()) readMessages(all = false, quiet = true)
+                // Once the permission is given the tracker keeps itself current,
+                // and says nothing when there is nothing new. A read the widget
+                // asked for is the same read out loud - you asked, so it answers
+                // either way.
+                if (url.endsWith(HOME_PAGE)) {
+                    val asked = readOnLoad
+                    readOnLoad = false
+                    when {
+                        hasSms() -> readMessages(all = false, quiet = !asked)
+                        // A widget tap that silently does nothing because the
+                        // permission was never given is indistinguishable from
+                        // a broken button, so ask for it then.
+                        asked -> askSms.launch(Manifest.permission.READ_SMS)
+                    }
+                }
             }
         }
         // Without a WebChromeClient a WebView shows no alert, no confirm and no
@@ -301,6 +318,7 @@ class MainActivity : ComponentActivity() {
         // tracker. If a photo is still in flight, or the page we were on was
         // saved, that is where to come back to.
         val wantsScan = intent?.getBooleanExtra(ScanWidget.EXTRA_SCAN, false) == true
+        readOnLoad = intent?.getBooleanExtra(InboxWidget.EXTRA_INBOX, false) == true
         val returning = pendingPhotoPath != null
         // Not while a photo is already on its way back: that would open the
         // camera a second time for a receipt we are holding.
@@ -335,6 +353,21 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+
+        if (intent.getBooleanExtra(InboxWidget.EXTRA_INBOX, false)) {
+            // Already here and on the tracker: just read. Anywhere else, go to
+            // the tracker first - the messages become transactions there, and
+            // landing on the page that shows them is half the answer.
+            if (web.url?.endsWith(HOME_PAGE) == true && pageReady) {
+                if (hasSms()) readMessages(all = false) else askSms.launch(Manifest.permission.READ_SMS)
+            } else {
+                readOnLoad = true
+                pageReady = false
+                web.loadUrl("https://$ASSET_HOST/assets/" + HOME_PAGE)
+            }
+            return
+        }
+
         if (!intent.getBooleanExtra(ScanWidget.EXTRA_SCAN, false)) return
         val onBasket = web.url?.endsWith(BASKET_PAGE) == true
         if (onBasket && pageReady) {
@@ -555,6 +588,10 @@ class MainActivity : ComponentActivity() {
                 if (batch.newest > since) {
                     prefs.edit().putLong(KEY_NEWEST_SMS, batch.newest).apply()
                 }
+                // The widget carries the answer whichever way the read was
+                // started, so "is the tracker up to date" can be settled from
+                // the home screen without opening anything.
+                InboxWidget.say(this, widgetLine(batch.messages.size))
                 if (quiet && batch.messages.isEmpty()) return@runOnUiThread
                 deliverSms(batch.messages, batch.truncated, batch.newest)
             }
@@ -582,6 +619,16 @@ class MainActivity : ComponentActivity() {
                 "window.onSmsBatch && window.onSmsBatch(" + text + ", " + last + ", " +
                     messages.size + ", " + truncated + ", " + newest + ");"
             )
+        }
+    }
+
+    /** What the widget shows until the next read. */
+    private fun widgetLine(found: Int): String {
+        val at = java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date())
+        return when (found) {
+            0 -> "Up to date " + BULLET + " " + at
+            1 -> "1 new " + BULLET + " " + at
+            else -> "" + found + " new " + BULLET + " " + at
         }
     }
 
@@ -855,6 +902,7 @@ class MainActivity : ComponentActivity() {
         /** A blank line between messages is what the page's splitter expects. */
         const val BLANK_LINE = "\n\n"
         const val ELLIPSIS = "\u2026"
+        const val BULLET = "\u00b7"
         const val KEY_PENDING_PHOTO = "pendingPhotoPath"
         const val KEY_PAGE = "page"
         const val MAX_PDF_PAGES = 5

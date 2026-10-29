@@ -3,4 +3,7 @@
     <string name="app_name">Budget Tracker</string>
     <string name="widget_label">Scan a receipt</string>
     <string name="widget_description">One tap from the home screen to photograph a till slip.</string>
+    <string name="widget_inbox_label">New messages</string>
+    <string name="widget_inbox_idle">Tap to read</string>
+    <string name="widget_inbox_description">Takes in whatever M-PESA has sent since the last look, and says how many.</string>
 </resources>
