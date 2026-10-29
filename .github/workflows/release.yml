@@ -23,10 +23,6 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # Accepts the SDK licences so Gradle may fetch anything the runner image
-      # is missing for compileSdk 36.
-      - uses: android-actions/setup-android@v3
-
       - name: Put the signing key back together
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
