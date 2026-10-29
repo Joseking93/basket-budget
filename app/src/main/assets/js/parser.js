@@ -112,8 +112,15 @@ const PATTERNS = [
     // named, so it carries the only thing the message says it is.
     type: 'Loan Repayment',
     direction: 'Out',
-    re: new RegExp(`${CONF}Loan of ${amt('amt')} repaid from (?:your )?M-PESA(?: account)? ${AT}`, 'i'),
+    re: new RegExp(
+      `${CONF}Loan of ${amt('amt')} repaid from\\s+(?:your\\s+)?(?<who>[A-Za-z0-9&\\-. ]*?)(?:\\s+account)?\\s+${AT}`,
+      'i'
+    ),
     who: 'Loan',
+    after: (t, g) => {
+      // "repaid from M-PESA" names the wallet it came out of, not a lender.
+      if (!g.who || /^M-?PESA$/i.test(clean(g.who))) t.counterparty = 'Loan';
+    },
   },
   {
     // "Your M-Shwari loan has been approved on 24/3/24 3:35 PM and Ksh1,970.00
@@ -248,6 +255,11 @@ const NOT_A_TRANSACTION = [
   /loan request will be processed/i,
   /loan (?:application|request) (?:was|has been) (?:received|declined|rejected)/i,
   /you (?:do not|don't) have enough/i,
+  // "Your account balance was: M-PESA Account : Ksh16,665.52 on 20/6/24"
+  /account balance was/i,
+  // "Your loan limit is 2500.00. A fee of 8.64% ..." - terms, not a payment.
+  /loan limit is/i,
+  /do not qualify/i,
 ];
 
 /**
