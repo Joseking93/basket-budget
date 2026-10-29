@@ -229,6 +229,10 @@ class MainActivity : ComponentActivity() {
                     scanOnLoad = false
                     chooseSource()
                 }
+                // Once the permission is given, keep the tracker current by
+                // itself: whatever M-PESA has sent since the last look is read
+                // on the way in, and says nothing when there is nothing new.
+                if (url.endsWith(HOME_PAGE) && hasSms()) readMessages(all = false, quiet = true)
             }
         }
         web.addJavascriptInterface(Bridge(), "Android")
@@ -414,11 +418,7 @@ class MainActivity : ComponentActivity() {
         fun readSms(all: Boolean) {
             runOnUiThread {
                 smsReadAll = all
-                if (ContextCompat.checkSelfPermission(
-                        this@MainActivity,
-                        Manifest.permission.READ_SMS,
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
+                if (hasSms()) {
                     readMessages(all)
                 } else {
                     askSms.launch(Manifest.permission.READ_SMS)
@@ -429,29 +429,42 @@ class MainActivity : ComponentActivity() {
 
     // ------------------------------------------------------------------ sms
 
-    private fun readMessages(all: Boolean) {
+    private fun hasSms(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
+     * @param quiet a read nobody asked for, on the way into the app: it says
+     *   nothing unless it actually found something.
+     */
+    private fun readMessages(all: Boolean, quiet: Boolean = false) {
         val prefs = getSharedPreferences(SMS_PREFS, MODE_PRIVATE)
         // Only what has arrived since last time, so re-reading is quick. The
         // page ignores duplicates anyway - every transaction is keyed by its
         // M-PESA receipt - so this is about speed, not correctness.
         val since = if (all) 0L else prefs.getLong(KEY_NEWEST_SMS, 0L)
-        smsSays(
-            if (all) "Reading every M-PESA message" + ELLIPSIS
-            else "Looking for new messages" + ELLIPSIS
-        )
+        if (!quiet) {
+            smsSays(
+                if (all) "Reading every M-PESA message" + ELLIPSIS
+                else "Looking for new messages" + ELLIPSIS
+            )
+        }
         Thread {
             val batch = try {
                 SmsReader.read(this, since)
             } catch (e: Exception) {
                 // A handset that keeps its inbox somewhere else, or a security
                 // policy that refuses: say so instead of appearing to hang.
-                runOnUiThread { smsSays("Android would not hand over the messages on this phone.") }
+                if (!quiet) {
+                    runOnUiThread { smsSays("Android would not hand over the messages on this phone.") }
+                }
                 return@Thread
             }
             runOnUiThread {
                 if (batch.newest > since) {
                     prefs.edit().putLong(KEY_NEWEST_SMS, batch.newest).apply()
                 }
+                if (quiet && batch.messages.isEmpty()) return@runOnUiThread
                 deliverSms(batch.messages)
             }
         }.start()
