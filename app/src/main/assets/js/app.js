@@ -15,13 +15,13 @@ import * as viz from './dashboard.js';
 import { reconcileAccounts } from './reconcile.js';
 import { computePayable } from './payables.js';
 import { monthsIn, monthLabel, compareMonths, biggestDriver, nextMonth } from './monthly.js';
-import { salaryRuns, monthResolver, payCycles } from './salary.js';
+import { salaryRuns, monthResolver, cycleMonthOf } from './salary.js';
 import { balanceSeries, lowDays, fulizaReport } from './balance.js';
 import { findRecurring, committedMonthly } from './recurring.js';
 import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
-import { isConfigured, norm as normNumber, ASSET_BUILD } from './config.js';
+import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
 
 const rampFor = (i, n) => viz.rampAt(i, n);
 
@@ -1168,7 +1168,13 @@ function renderMonthly(all) {
   card.hidden = months.length === 0;
   if (!months.length) return;
 
-  if (!state.month || !months.includes(state.month)) state.month = months[0];
+  // The month you are LIVING in, not the newest one offered. The list always
+  // carries one month beyond the data so a budget can be set ahead of time, and
+  // defaulting to the newest opened the report on an empty future month.
+  if (!state.month || !months.includes(state.month)) {
+    const now = cycleMonthOf(isoDay(new Date()));
+    state.month = months.includes(now) ? now : months[0];
+  }
 
   const sel = $('#month-sel');
   sel.innerHTML = months.map((m) => `<option value="${m}"${m === state.month ? ' selected' : ''}>${monthLabel(m)}</option>`).join('');
@@ -2808,7 +2814,7 @@ async function init() {
 /* Pay lands on the 28th, so a month runs from the 28th to the 27th. salary.js
  * works the real boundary out from the statements; this is the fallback for a
  * device with no pay on file yet, and it matches how Basket counts. */
-const PAY_DAY = 28;
+const PAY_DAY = CYCLE_DAY;
 
 const isoDay = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -2837,12 +2843,11 @@ function cycleFromDay(todayIso) {
  * you can't check.
  */
 function cycleBounds(all, cycleStart, todayIso) {
+  // One month long, always. It used to end wherever the NEXT detected pay run
+  // happened to land, so a month with no recognised payday after it ran on and
+  // on, and the dates on the card stopped matching the month named beside them.
   const from = (cycleStart || cycleFromDay(todayIso)).slice(0, 10);
-  const later = payCycles(all)
-    .map((c) => String(c.start || '').slice(0, 10))
-    .filter((d) => d > from)
-    .sort()[0];
-  return { from, to: shiftDay(later || monthOn(from, 1), -1) };
+  return { from, to: shiftDay(monthOn(from, 1), -1) };
 }
 
 

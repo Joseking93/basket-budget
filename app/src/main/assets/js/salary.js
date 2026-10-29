@@ -1,3 +1,5 @@
+import { CYCLE_DAY } from './config.js';
+
 // Salary — paid through TerraPay, and it arrives in CHUNKS.
 //
 // M-PESA caps how much can land in one transfer, so a month's pay arrives as a
@@ -76,52 +78,43 @@ export function payCycles(txns) {
     .sort((a, b) => (a.start < b.start ? -1 : 1));
 }
 
-// Resolving a month means scanning the pay runs, and the reports ask per month and per
-// transaction — so the cycles are computed once per transaction list. Keyed on the
-// array itself, which is rebuilt on every render, so a stale answer can't survive an
-// edit.
-const cycleCache = new WeakMap();
+/**
+ * Which budget month a date belongs to.
+ *
+ * The cycle starts on CYCLE_DAY, so a date on or after it belongs to the cycle
+ * opening that month, and a date before it to the one that opened the month
+ * before. The name comes from monthAPayFunds, the same function that names a
+ * real pay run, so a cycle and the pay that funds it always agree.
+ */
+export function cycleMonthOf(dateISO, day = CYCLE_DAY) {
+  const d = String(dateISO || '');
+  if (d.length < 10) return '';
+  const ym = d.slice(0, 7);
+  const startYM = +d.slice(8, 10) >= day ? ym : addMonths(ym, -1);
+  return monthAPayFunds(`${startYM}-${String(day).padStart(2, '0')}`);
+}
+
+/** The day a budget month opens, e.g. "2026-11" -> "2026-10-28". */
+export function cycleStartOf(month, day = CYCLE_DAY) {
+  const pad = String(day).padStart(2, '0');
+  // monthAPayFunds rolls a late-month payday on to the month it funds, so the
+  // cycle named November is the one that opened on 28 October. Derived from the
+  // same function rather than assumed, so the two cannot drift apart.
+  const own = `${month}-${pad}`;
+  return monthAPayFunds(own) === month ? own : `${addMonths(month, -1)}-${pad}`;
+}
 
 /**
- * A function that answers "which month does this belong to" for one transaction list.
- * Order: a month you assigned it to → the pay cycle its date falls in → its calendar
- * month. Before the first payday, or with no salary at all, it's just the calendar.
+ * Which month a transaction belongs to.
+ *
+ * A month you assigned by hand wins; otherwise it is the cycle its date falls
+ * in. It used to walk the DETECTED pay runs instead, which meant pay arriving
+ * on a rail the detector did not recognise left a gap, and the fallback for a
+ * gap was the calendar month - a different name for the same stretch of days,
+ * so two definitions of one month existed at once.
  */
-export function monthResolver(txns) {
-  let cycles = cycleCache.get(txns);
-  if (!cycles) {
-    cycles = payCycles(txns);
-    cycleCache.set(txns, cycles);
-  }
-  const last = cycles.length - 1;
-  return (t) => {
-    if (t.budgetMonth) return t.budgetMonth;
-    const d = t.date || '';
-    for (let i = last; i >= 0; i--) {
-      if (d < cycles[i].start) continue;
-      // Earlier cycles are closed by the payday that followed them, so they're exact.
-      if (i !== last) return cycles[i].month;
-      // The newest cycle has no payday after it to close it — so left alone it would
-      // claim every future transaction forever, and the month you're actually living
-      // in would sit empty while the old one kept growing. That's what happened when
-      // September showed nothing and August held six weeks of spending.
-      //
-      // So once the calendar passes the point the next pay was due, roll the month on
-      // anyway. A real payday landing later just replaces this guess.
-      return addMonths(cycles[i].month, wholeMonthsSince(cycles[i].start, d));
-    }
-    // Older than every payday we can see. Falling back to the calendar month
-    // here is what made the home screen claim 612,370 spent this month beside a
-    // chip saying 51,354: a cycle running 28 Oct - 27 Nov is LABELLED October,
-    // so every transaction from the 1st to the 27th fell back to "October" too
-    // and joined a month it had nothing to do with. The convention is extended
-    // backwards instead, using the same payday and the same labelling, so the
-    // two can never disagree.
-    if (!cycles.length) return d.slice(0, 7);
-    const payDay = +cycles[0].start.slice(8, 10);
-    const startYM = +d.slice(8, 10) >= payDay ? d.slice(0, 7) : addMonths(d.slice(0, 7), -1);
-    return monthAPayFunds(`${startYM}-${String(payDay).padStart(2, '0')}`);
-  };
+export function monthResolver() {
+  return (t) => t.budgetMonth || cycleMonthOf(t.date);
 }
 
 function addMonths(ym, n) {
@@ -131,12 +124,3 @@ function addMonths(ym, n) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-/** Whole pay-periods between a payday and a date — 0 until the same day next month. */
-function wholeMonthsSince(startISO, dateISO) {
-  const s = new Date(startISO);
-  const d = new Date(dateISO);
-  if (isNaN(s) || isNaN(d)) return 0;
-  let n = (d.getUTCFullYear() - s.getUTCFullYear()) * 12 + (d.getUTCMonth() - s.getUTCMonth());
-  if (d.getUTCDate() < s.getUTCDate()) n -= 1;
-  return Math.max(0, n);
-}

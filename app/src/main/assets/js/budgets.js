@@ -10,7 +10,7 @@
 // line therefore covers a LIST of categories, stated rather than guessed at.
 
 import { classOf, CLASSES, categoryParts } from './rules.js';
-import { monthResolver, payCycles } from './salary.js';
+import { monthResolver, cycleStartOf } from './salary.js';
 
 // Bump when the LINES change (a new line, a re-mapped category) so installs that
 // already stored the old lines pick up the new structure — see store.budgets().
@@ -48,7 +48,7 @@ export function budgetReport(budgets, txns, month) {
   const budgetMonthOf = monthResolver(txns);
   // When this month runs from a payday rather than the 1st, say so — a budget whose
   // boundaries you can't see is one you can't check.
-  const cycleStart = (payCycles(txns).find((c) => c.month === month) || {}).start || null;
+  const cycleStart = cycleStartOf(month);
 
   // Expand to category-parts FIRST, then keep the slices whose budget month is this
   // one — so a split (househelp → July, groceries → June) lands each slice on

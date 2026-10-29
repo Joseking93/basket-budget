@@ -5,7 +5,7 @@
  * something you can see rather than something you have to deduce from a bug
  * that will not die.
  */
-export const ASSET_BUILD = '6.0';
+export const ASSET_BUILD = '6.1';
 
 // Who you are, across accounts — held at runtime, NOT written here.
 //
@@ -40,6 +40,15 @@ export let SMALL_SEND_LIMIT = 200;
  * June. A phone re-reading four years of messages every time a figure changes
  * is the whole of the lag.
  */
+/**
+ * The day a budget month starts, because that is the day the money arrives.
+ *
+ * One number, in one place, used by everything that has an opinion about which
+ * month a transaction belongs to. It used to be inferred per-report from
+ * detected pay runs, and two reports could infer differently.
+ */
+export const CYCLE_DAY = 28;
+
 export const DEFAULT_WINDOW_MONTHS = 5;
 
 /**
