@@ -318,6 +318,15 @@
       </div>
       <p class="hint note">Transactions, rules and categories <strong>merge</strong>. Single values — a budget amount, a debt balance — take the incoming file's version, so restoring the <em>older</em> device into the newer one can overwrite a figure you just fixed. It reports what changed.</p>
 
+      <div id="update-box" hidden>
+        <h3 class="debt-group">This app</h3>
+        <p class="hint" id="update-msg"></p>
+        <div class="row">
+          <button id="btn-update" class="ghost">Check for updates</button>
+          <button id="btn-install" class="primary" hidden>Install it</button>
+        </div>
+      </div>
+
       <h3 class="debt-group">Danger</h3>
       <div class="row">
         <button id="btn-reset" class="danger">Reset everything</button>

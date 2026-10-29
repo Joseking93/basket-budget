@@ -13,6 +13,7 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.print.PrintAttributes
 import android.print.PrintManager
@@ -382,20 +383,12 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun installUpdate() {
-            val release = pendingUpdate ?: return
-            updateSays("Downloading…", false)
-            Thread {
-                val dir = File(cacheDir, "updates").apply { mkdirs() }
-                val file = Updater.download(release.apkUrl, dir)
-                runOnUiThread {
-                    if (file == null) {
-                        updateSays("The download did not finish. Try again.", true)
-                    } else {
-                        updateSays("Opening the installer…", false)
-                        openInstaller(file)
-                    }
-                }
-            }.start()
+            // A bridge method arrives on the JavaBridge thread, and every WebView
+            // call has to be on the UI thread. Saying "Downloading" from here threw
+            // before the download had even started, and the page's own catch
+            // swallowed it - which is exactly why the button appeared to do
+            // nothing at all. Everything that talks to the page goes through here.
+            runOnUiThread { downloadUpdate() }
         }
 
         @JavascriptInterface
@@ -425,6 +418,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun downloadUpdate() {
+        val release = pendingUpdate ?: run {
+            updateSays("Check for an update first.", false)
+            return
+        }
+        updateSays("Downloading…", false)
+        Thread {
+            val dir = File(cacheDir, "updates").apply { mkdirs() }
+            val file = Updater.download(release.apkUrl, dir)
+            runOnUiThread {
+                if (file == null) {
+                    updateSays("The download did not finish. Try again.", true)
+                } else {
+                    updateSays("Opening the installer…", false)
+                    openInstaller(file)
+                }
+            }
+        }.start()
     }
 
     // ------------------------------------------------------------------ sms
@@ -688,6 +701,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openInstaller(file: File) {
+        // Android 8 and later require this app to be trusted to install others.
+        // Say so rather than letting the system's refusal read as a dead button.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            updateSays(
+                "Android has to let this app install updates: allow \"Install unknown apps\" " +
+                    "when it asks, then tap Install it again.",
+                true,
+            )
+        }
         try {
             val uri = FileProvider.getUriForFile(this, authority(), file)
             startActivity(

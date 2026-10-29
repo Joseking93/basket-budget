@@ -733,7 +733,11 @@ if(bridge('appVersion')){
     $('installBtn').hidden=true;
     try{and().checkUpdate()}catch(e){$('updateMsg').textContent='Could not check just now.'}
   };
-  $('installBtn').onclick=()=>{try{and().installUpdate()}catch(e){}};
+  /* Never swallow this: a bridge call that threw is how "Install it" looked
+     like a dead button for a whole release. */
+  $('installBtn').onclick=()=>{
+    try{and().installUpdate()}catch(e){$('updateMsg').textContent='Could not start the download: '+e.message}
+  };
 }
 window.onUpdateStatus=(message,canInstall)=>{
   $('updateMsg').textContent=String(message);

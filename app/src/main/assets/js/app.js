@@ -2579,6 +2579,7 @@ async function init() {
   wire();
   wireSettings();
   wireSms();
+  wireUpdates();
   // Basket's receipts live at this same origin now, so they are simply read.
   pullBasketReceipts();
   render();
@@ -2777,6 +2778,54 @@ function pullBasketReceipts() {
     /* Not fatal: at worst a deleted receipt reappears once. */
   }
   return fresh.length;
+}
+
+/* ---- Updating the app itself --------------------------------------------- */
+/*
+ * Only in the Android app, and only when asked: this is the one thing here that
+ * touches the network. It lived on the Basket page alone, which stopped making
+ * sense the moment the tracker became the page the app opens on.
+ */
+function wireUpdates() {
+  let bridge = null;
+  try {
+    bridge = window.Android && window.Android.appVersion ? window.Android : null;
+  } catch (e) {
+    bridge = null;
+  }
+  $('#update-box').hidden = !bridge;
+  if (!bridge) return;
+
+  const msg = $('#update-msg');
+  const install = $('#btn-install');
+  try {
+    msg.textContent = `Version ${bridge.appVersion()}.`;
+  } catch (e) {
+    msg.textContent = '';
+  }
+
+  // A bridge call that throws must say so. Swallowing one is how the install
+  // button spent a release looking like it did nothing.
+  $('#btn-update').addEventListener('click', () => {
+    msg.textContent = 'Checking…';
+    try {
+      bridge.checkUpdate();
+    } catch (e) {
+      msg.textContent = `Could not check: ${e.message}`;
+    }
+  });
+  install.addEventListener('click', () => {
+    try {
+      bridge.installUpdate();
+    } catch (e) {
+      msg.textContent = `Could not start the download: ${e.message}`;
+    }
+  });
+
+  window.onUpdateStatus = (text, canInstall) => {
+    msg.textContent = String(text);
+    install.hidden = !canInstall;
+  };
 }
 
 /* ---- M-PESA's own messages, off the phone -------------------------------- */
