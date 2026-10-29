@@ -36,6 +36,8 @@ const state = {
   // A SET of categories, for the ring's folded slice - which stands for several
   // and so cannot be expressed as catFilter, a single name.
   drillCats: null,
+  // What to call that set on screen: a budget line's name, or the ring's fold.
+  drillCatsLabel: '',
   dirFilter: 'all',
   acctFilter: 'all',
   showSettled: false,
@@ -360,7 +362,10 @@ function render() {
     );
   }
   if (state.catFilter !== 'all') bits.push(state.catFilter);
-  if (state.drillCats) bits.push(`${viz.REST_LABEL.toLowerCase()} (${state.drillCats.length} categories)`);
+  if (state.drillCats) {
+    const n = state.drillCats.length;
+    bits.push(`${state.drillCatsLabel || viz.REST_LABEL} (${n} categor${n === 1 ? 'y' : 'ies'})`);
+  }
   if (state.search) bits.push(`“${state.search}”`);
   if (state.dirFilter !== 'all') bits.push(state.dirFilter === 'Out' ? 'out only' : 'in only');
   if (state.acctFilter !== 'all') bits.push(state.acctFilter === 'bank' ? 'bank' : 'M-PESA');
@@ -2395,9 +2400,10 @@ function wireDrill(root, scopeMonth) {
       const name = el.dataset.drillName;
       state.drillCats = null;
       if (cats) {
-        // The ring's folded slice: filter to everything it stands for, not to a
-        // category called after it.
+        // A set of categories: the ring's folded slice, or a budget line, which
+        // covers several and so cannot be expressed as one category name.
         state.drillCats = cats.split('|');
+        state.drillCatsLabel = el.dataset.drillLabel || '';
         state.catFilter = 'all';
         state.search = '';
       }
@@ -2418,7 +2424,9 @@ function wireDrill(root, scopeMonth) {
       const table = $('#table-txns');
       showView('txns');
       table.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      const what = cat || name || `${state.drillCats.length} smaller categories`;
+      const n = state.drillCats ? state.drillCats.length : 0;
+      const what =
+        cat || name || state.drillCatsLabel || `${n} smaller categor${n === 1 ? 'y' : 'ies'}`;
       toast(`Showing ${what}${state.drillMonth ? ` in ${monthLabel(state.drillMonth)}` : ''}. Clear the filters to go back.`);
     };
     el.addEventListener('click', go);
@@ -3249,7 +3257,7 @@ function renderSpark(all, todayIso) {
 }
 
 /** Each budget line as a card: what is left, and how far through it you are. */
-function renderHomeBudgets(report, budgeted) {
+function renderHomeBudgets(report, budgeted, month) {
   const box = $('#home-budgets');
   const sec = $('#home-budgets-sec');
   const lines = (report || []).filter((r) => r.amount > 0);
@@ -3265,7 +3273,15 @@ function renderHomeBudgets(report, budgeted) {
       const left = r.amount - r.spent;
       const pct = Math.min(100, (r.spent / r.amount) * 100);
       const over = left < 0;
-      return `<button class="bcard" type="button" data-go="budget">
+      // The card shows a figure, so it opens what the figure counted - the
+      // categories this line covers, in the month it is counting. It used to
+      // go to the budget SETTINGS, which is where you change the 35,000, not
+      // where you find out what the 29,150 was spent on.
+      const covers = Array.isArray(r.categories) ? r.categories.filter(Boolean) : [];
+      const opens = covers.length
+        ? `data-drill-cats="${escapeHtml(covers.join('|'))}" data-drill-label="${escapeHtml(r.label)}"`
+        : 'data-go="budget"'; // a line with nothing mapped has nothing to show
+      return `<button class="bcard" type="button" ${opens}>
         <span class="bc-icon ${over ? 'neg' : ''}" aria-hidden="true">${over ? '!' : '●'}</span>
         <span class="bc-text">
           <span class="bc-name">${escapeHtml(r.label)}</span>
@@ -3280,6 +3296,7 @@ function renderHomeBudgets(report, budgeted) {
       </button>`;
     })
     .join('');
+  wireDrill(box, month);
   wireViewLinks(box);
 }
 
@@ -3810,7 +3827,7 @@ function renderHome(all) {
 
   renderBalances();
   renderSpark(all, todayIso);
-  renderHomeBudgets(report, budgeted);
+  renderHomeBudgets(report, budgeted, month);
   renderHomeUpcoming(all);
   renderBasketRow();
   publishGlance(month, from, to, budgeted, spent, report.find((r) => r.id === 'food'));

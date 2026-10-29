@@ -520,7 +520,9 @@ export function donutRows(rows) {
  */
 /** The folded row filters to everything it folded; a real one to itself. */
 const drillAttr = (r) =>
-  r.rest ? `data-drill-cats="${esc(r.rest.join('|'))}"` : `data-drill-cat="${esc(r.category)}"`;
+  r.rest
+    ? `data-drill-cats="${esc(r.rest.join('|'))}" data-drill-label="${esc(REST_LABEL)}"`
+    : `data-drill-cat="${esc(r.category)}"`;
 
 export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
   const total = rows.reduce((a, r) => a + r.total, 0);
