@@ -235,6 +235,11 @@ const BUILT_IN = [
   // makes it Salary or Income for good if that is what it is.
   { type: /^Bank Deposit$/i, category: 'Bank Transfers' },
 
+  // A card payment with no merchant in the text ("for the sum of KES 10,690.33"
+  // and nothing else) can only be named after the card. It is real spending and
+  // it is unassigned, which is exactly what the triage list is for.
+  { match: /^Card payment$/i, category: 'Uncategorised' },
+
   // Cash IN at an agent. Not income: it is money you already had, in your hand,
   // moving into the wallet — and it is very often the cash you withdrew earlier
   // going back in. Counting it as money received would book the same money twice.

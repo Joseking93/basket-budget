@@ -252,6 +252,69 @@ const PATTERNS = [
    ────────────────────────────────────────────────────────────────────────── */
 const BANK_PATTERNS = [
   {
+    // "Thank you for using your Standard Chartered card ending 4981 on
+    //  21-04-23 for the sum of KES 10690.33." No merchant named, so the card
+    //  is the only thing it can be called.
+    type: 'Card Payment',
+    direction: 'Out',
+    re: new RegExp(
+      `using your .*?card ending (?<card>\\d+) on (?<dmy>\\d{2}-\\d{2}-\\d{2}) for the sum of ${amt('amt')}`,
+      'i'
+    ),
+    who: 'Card payment',
+  },
+  {
+    // "KES 2624.84 has been paid to Wise 188-89083833 US using your SCB Debit
+    //  Card No. 3243 on 2023-01-25."
+    type: 'Card Payment',
+    direction: 'Out',
+    re: new RegExp(
+      `${amt('amt')} has been paid to (?<who>.+?) using your .*?Card No\\.? ?(?<card>\\d+) on (?<iso>\\d{4}-\\d{2}-\\d{2})`,
+      'i'
+    ),
+  },
+  {
+    // "Dear Client, KES 15086.30 has been credited to your Acc. ending with
+    //  7700." Money arriving in the bank that the wallet never sees. The same
+    //  sentence ending "from MPESA" is an echo and never reaches here.
+    type: 'Bank Deposit',
+    direction: 'In',
+    re: new RegExp(
+      `${amt('amt')} (?:has been credited to|received in) your (?:Acc\\.?|account) ending (?:with )?(?<acct>\\d+)`,
+      'i'
+    ),
+    who: 'Bank deposit',
+  },
+  {
+    // "Your local funds transfer request of KES 50,048.00 to Josephat Kingor
+    //  has been processed successfully." The one that names who was paid.
+    type: 'Bank Payment',
+    direction: 'Out',
+    re: new RegExp(
+      `funds transfer request of ${amt('amt')} to (?<who>.+?) (?:has been |is )processed`,
+      'i'
+    ),
+  },
+  {
+    // "KES 114897.00 was transferred from Acc. ending with 7700 to Acc. ending
+    //  with 9581." Between his own accounts: real, but not spending.
+    type: 'Internal Transfer',
+    direction: 'Out',
+    re: new RegExp(
+      `${amt('amt')} was transferr?ed from (?:Acc\\.?|account) ending (?:with )?(?<acct>\\d+) to (?:Acc\\.?|account) ending (?:with )?(?<to>\\d+)`,
+      'i'
+    ),
+    who: 'Between my own accounts',
+  },
+  {
+    // "9JU9F39ZLL Completed. KES 20.00 airtime Purchase for 254… on 30/10/2022
+    //  at 7:13 PM." Bought from the bank, so the wallet never sees it.
+    type: 'Airtime Purchase',
+    direction: 'Out',
+    re: new RegExp(`${amt('amt')} airtime Purchase for \\d+ on ${DATE} at ${TIME}`, 'i'),
+    who: 'Airtime',
+  },
+  {
     // "Dear Client, a transaction of KES 549.00 was made on card ending 6621
     //  at Google Spotify Music on 2026-09-30."
     // The one kind of spending that never touches the wallet at all.
@@ -283,15 +346,50 @@ const BANK_PATTERNS = [
  * same money cannot be counted twice.
  */
 const BANK_ECHOES = [
+  // Anything quoting the wallet's own receipt is the wallet's movement, seen
+  // from the other side. The colon is not always there.
+  /M-?PESA\s+Ref/i,
   /to\s+MPESA has been processed/i,
   /transferr?ed .* to your MPESA Account/i,
-  /M-?PESA REF:/i,
+  /sent to M-?PESA \d/i,
+  /credited to your (?:Acc\.?|account) ending (?:with )?\d+ from M-?PESA/i,
+  /withdrawn from (?:Acc\.?|account) ending/i,
+
+  // Borrowing, tracked through the wallet. The loan is created here and drawn
+  // in M-PESA; counting both would double every shilling borrowed.
   /MOBI LOAN/i,
   /to KCB Mobile Loan has been received/i,
-  /loan No\.? \d+ is now fully paid/i,
+  /to VOOMA Loan has been received/i,
+  /loan (?:No\.?|number)?\s*\d+ is now fully paid/i,
+  /loan .*(?:has been|was) (?:approved|processed)/i,
+  /credited to your KCB Account/i,
+  /sent to your KCB M-?PESA Account/i,
+  /has been partially paid/i,
+  /request to refinance/i,
+
+  // Nothing moved.
+  /has failed/i,
+  /cannot be completed/i,
+  /been declined/i,
+  /^Failed\./i,
   /loan request/i,
   /is now being processed/i,
+
+  // Offers, limits, balances and reminders.
   /total limit is/i,
+  /credit limit is/i,
+  /loan limit is/i,
+  /you qualify for/i,
+  /borrow (?:now|today)/i,
+  /\bSTOP ?\*\d/i,
+  /Actual balance/i,
+  /balance is\s+KES [\d,.]+\s+on/i,
+  /balance of KES [\d,.]+ is due/i,
+  /outstanding .*Loan due on/i,
+  /repayment period/i,
+  /existing loan of/i,
+  /repayment of KES [\d,.]+ is due/i,
+  /please repay/i,
 ];
 
 // A Fuliza draw rides along with whatever transaction it funded, so it is read
@@ -336,16 +434,19 @@ export function parseMessages(raw) {
 
   for (const block of splitMessages(raw)) {
     const { body, at, account } = stripStamp(block);
+    // The echo test runs FIRST for a bank. It is not a fallback for a message
+    // that would not parse — it is the thing that decides whether a message is
+    // a record of money or a repetition of one.
+    const echo = account && BANK_ECHOES.some((re) => re.test(body));
     const txns = account
-      ? parseBank(body, account, at)
+      ? echo
+        ? []
+        : parseBank(body, account, at)
       : parseOne(body, at || lastDate);
     if (txns.length) {
       transactions.push(...txns);
       lastDate = txns[0].date || lastDate;
-    } else if (
-      NOT_A_TRANSACTION.some((re) => re.test(body)) ||
-      (account && BANK_ECHOES.some((re) => re.test(body)))
-    ) {
+    } else if (echo || NOT_A_TRANSACTION.some((re) => re.test(body))) {
       ignored++;
     } else {
       unparsed.push(body);
@@ -412,13 +513,28 @@ function splitMessages(raw) {
 }
 
 
+/**
+ * A bank writes the date four different ways, sometimes two of them in one
+ * message. Whichever it used, it beats the message's own arrival time.
+ */
+function bankDate(g) {
+  if (g.ymd) return parseDateTime(g.ymd.split('-').reverse().join('/'), g.ymdt || '');
+  if (g.iso) return `${g.iso}T12:00:00.000Z`;
+  if (g.dmy) {
+    const [d, m, y] = g.dmy.split('-');
+    return parseDateTime(`${d}/${m}/${y}`, '');
+  }
+  if (g.d) return parseDateTime(g.d, g.t || '');
+  return null;
+}
+
 /** One message from a bank, filed against that bank's account. */
 function parseBank(block, account, at) {
   for (const p of BANK_PATTERNS) {
     const m = block.match(p.re);
     if (!m) continue;
     const g = m.groups;
-    const date = g.iso ? `${g.iso}T12:00:00.000Z` : at;
+    const date = bankDate(g) || at;
     if (!date) return [];
     // A bank message carries no receipt, so the id is built from what makes it
     // unique: the account, the moment, and the amount.
