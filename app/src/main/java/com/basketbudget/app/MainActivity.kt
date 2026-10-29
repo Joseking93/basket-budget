@@ -185,8 +185,10 @@ class MainActivity : ComponentActivity() {
             blockNetworkImage = true
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-            // Lets the page's own prefers-color-scheme CSS follow the system theme.
-            WebSettingsCompat.setAlgorithmicDarkeningAllowed(web.settings, true)
+            // OFF. The page carries both themes and switches them itself; left
+            // on, WebView darkens the light one into a near-black imitation of
+            // the dark one and the switch appears to do nothing.
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(web.settings, false)
         }
         web.webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(
