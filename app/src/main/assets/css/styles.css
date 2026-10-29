@@ -231,7 +231,47 @@ h4 { font-size: 13px; font-weight: 600; }
 .tipbar { background: var(--tint-soft); border-color: var(--tint-line); }
 .tip { color: var(--tint); }
 
+/* ── The ring ──────────────────────────────────────────────── */
+.ring-card { margin-bottom: 14px; }
+.ring-wrap { position: relative; width: 186px; margin: 2px auto 14px; }
+.ring { display: block; width: 186px; height: 186px; }
+.ring-arc { transition: opacity .15s var(--ease); }
+.ring-wrap:hover .ring-arc { opacity: .55; }
+.ring-wrap:hover .ring-arc:hover { opacity: 1; }
+.ring-mid {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; pointer-events: none;
+}
+.ring-total {
+  font-size: 23px; font-weight: 700; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+.ring-label { font-size: 11px; color: var(--ink2); }
+
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.leg {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 8px 9px; border-radius: var(--r-sm); border: 1px solid var(--card-line);
+  background: var(--card-2); font: inherit; color: var(--ink);
+}
+.leg:hover { background: var(--card-3); border-color: var(--card-line); }
+.leg-dot { width: 9px; height: 9px; border-radius: 5px; flex: 0 0 auto; }
+.leg-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.leg-name {
+  font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.leg-sub { font-size: 10.5px; color: var(--ink2); }
+.leg-amt { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 400px) { .legend { grid-template-columns: 1fr; } }
+
 /* ── Choosing a category ─────────────────────────────────────── */
+/* Untouchable on purpose: see wireCategoryPicker. A finger dragging down the
+   list passes straight through these to the scroller, and the click that only
+   happens when you did NOT scroll is what opens the picker. */
+select.cat, select.triage-cat, #cat-filter, #bulk-cat, #nr-cat, #pad-cat,
+select.budget-assign { pointer-events: none; }
+
 .catpick { display: flex; flex-direction: column; gap: 9px; max-height: 76vh; }
 .catpick .pick-list { max-height: 56vh; overflow-y: auto; }
 .catpick .pick-row { width: 100%; text-align: left; }

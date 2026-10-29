@@ -41,6 +41,9 @@ const empty = () => ({
   receiptLinks: {},
   rawDropped: 0, // the one-off that freed the stored SMS text
   diningFolded: 0, // the one-off that merged Dining & Takeout into Entertainment
+  // category -> colour slot on the ring. Remembered so a category keeps its
+  // colour when the ranking changes; see chartSlots().
+  catSlots: {},
   // Itemised cash: {id, date, category, amount, items:[{name, amount}], note}.
   // NOT transactions. The money already counted when it was withdrawn, so these
   // only say what it went on - see js/cash.js for why that distinction matters.
@@ -620,6 +623,51 @@ function foldDiningIntoEntertainment() {
   state.diningFolded = 1;
   save();
   if (n) console.info(`Moved ${n} things from “${OLD}” to “${NEW}”.`);
+}
+
+/**
+ * Which of the eight chart colours each category gets.
+ *
+ * Assigned per CATEGORY, not per rank, so Groceries stays the same colour when
+ * it slips from second place to fourth - a chart that repaints itself every
+ * month teaches you nothing about any of them. A category keeps its remembered
+ * slot whenever that slot is free, and anything new takes the lowest one left,
+ * so the set on screen is always eight distinct colours.
+ *
+ * @param {string[]} categories  what is about to be drawn, biggest first
+ * @returns {Record<string, number>} category -> 0..7
+ */
+export function chartSlots(categories) {
+  if (!state.catSlots) state.catSlots = {};
+  const want = state.catSlots;
+  const out = {};
+  const taken = new Set();
+
+  for (const c of categories) {
+    const slot = want[c];
+    if (slot != null && !taken.has(slot)) {
+      out[c] = slot;
+      taken.add(slot);
+    }
+  }
+  for (const c of categories) {
+    if (out[c] != null) continue;
+    let slot = 0;
+    while (taken.has(slot) && slot < 8) slot++;
+    out[c] = slot % 8;
+    taken.add(out[c]);
+  }
+
+  // Only write when something actually changed: this runs on every render.
+  let moved = false;
+  for (const [c, slot] of Object.entries(out)) {
+    if (want[c] !== slot) {
+      want[c] = slot;
+      moved = true;
+    }
+  }
+  if (moved) save();
+  return out;
 }
 
 export function cashRuns() {

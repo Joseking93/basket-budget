@@ -118,7 +118,7 @@ export function overTime(txns) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 /** Horizontal bars — long category names need the room. */
-export function renderCategoryBars(el, rows) {
+export function renderCategoryBars(el, rows, slotOf = null) {
   if (!rows.length) {
     el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
     return;
@@ -132,7 +132,9 @@ export function renderCategoryBars(el, rows) {
                    aria-label="${esc(r.category)}: ${fmt(r.total)} shillings across ${r.count} transactions. Activate to see them.">
           <div class="bar-label">${esc(r.category)}</div>
           <div class="bar-track">
-            <div class="bar-fill" style="width:${pct}%;background:${rampAt(i, rows.length)}"></div>
+            <div class="bar-fill" style="width:${pct}%;background:${
+              slotOf ? seriesColour(slotOf(r.category)) : rampAt(i, rows.length)
+            }"></div>
           </div>
           <div class="bar-value">${fmt(r.total)}<span class="bar-count">${r.count}×</span></div>
         </div>`;
@@ -461,3 +463,107 @@ export function sortTxns(txns, { key, dir }) {
 }
 
 export { fmt };
+
+/* ---- The ring ------------------------------------------------------------ */
+//
+// Where the money went, as a shape. The ranked bars underneath answer "how much
+// on what" precisely; the ring answers "what is this month SHAPED like" at a
+// glance - one category eating half of it reads instantly, which is the one
+// thing a sorted list of numbers cannot show you.
+//
+// Eight colours, assigned per CATEGORY rather than per rank, so Groceries is the
+// same colour next month even when it moves from second to fourth. A ninth
+// category is never given a new hue: the tail folds into "Other", which is also
+// the only honest thing to do with twenty slices too thin to see.
+
+/** Validated categorical hues, in fixed order. See the data-viz palette. */
+const SERIES_LIGHT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+const SERIES_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
+
+export const seriesColour = (slot) => (isDark() ? SERIES_DARK : SERIES_LIGHT)[slot % 8];
+
+/** How many slices before the tail is folded away. */
+export const DONUT_SLICES = 7;
+
+/**
+ * Rank the categories and fold the tail.
+ *
+ * @param {object[]} rows  byCategory output, biggest first
+ * @returns {{category: string, total: number, count: number, rest?: string[]}[]}
+ */
+export function donutRows(rows) {
+  if (rows.length <= DONUT_SLICES + 1) return rows;
+  const head = rows.slice(0, DONUT_SLICES);
+  const tail = rows.slice(DONUT_SLICES);
+  return [
+    ...head,
+    {
+      category: 'Other',
+      total: tail.reduce((a, r) => a + r.total, 0),
+      count: tail.reduce((a, r) => a + r.count, 0),
+      rest: tail.map((r) => r.category),
+    },
+  ];
+}
+
+/**
+ * @param {Function} slotOf  category -> 0..7, stable across renders
+ */
+export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
+  const total = rows.reduce((a, r) => a + r.total, 0);
+  if (!rows.length || total <= 0) {
+    el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
+    return;
+  }
+
+  const R = 52;
+  const W = 16;
+  const C = 2 * Math.PI * R;
+  // A 2px gap in the surface colour is what separates touching slices - never a
+  // stroke around them, which would add ink that is not data. In this viewBox
+  // 1.6 units lands at about 2px once the ring is drawn at its real size.
+  const GAP = rows.length > 1 ? 1.6 : 0;
+
+  let at = 0;
+  const arcs = rows
+    .map((r) => {
+      const len = Math.max((r.total / total) * C - GAP, 0.6);
+      const dash = `${len} ${C - len}`;
+      const offset = -at;
+      at += (r.total / total) * C;
+      return `<circle class="ring-arc" cx="60" cy="60" r="${R}" fill="none"
+                 stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
+                 stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
+                 data-drill-cat="${esc(r.category)}"><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
+    })
+    .join('');
+
+  const legend = rows
+    .map((r) => {
+      const pct = Math.round((r.total / total) * 100);
+      // The name is always written out: three of the light-mode hues sit under
+      // 3:1 on white, so identity can never rest on the colour alone.
+      return `<button type="button" class="leg" data-drill-cat="${esc(r.category)}"
+                 title="${r.rest ? esc(r.rest.join(', ')) : 'Show these transactions'}">
+          <span class="leg-dot" style="background:${seriesColour(slotOf(r.category))}"></span>
+          <span class="leg-text">
+            <span class="leg-name">${esc(r.category)}</span>
+            <span class="leg-sub">${pct}% · ${r.count}&times;</span>
+          </span>
+          <span class="leg-amt">${fmt(r.total)}</span>
+        </button>`;
+    })
+    .join('');
+
+  el.innerHTML = `
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Spending by category">
+        <g transform="rotate(-90 60 60)">${arcs}</g>
+      </svg>
+      <div class="ring-mid">
+        <span class="ring-total">${fmt(total)}</span>
+        <span class="ring-label">${esc(label)}</span>
+      </div>
+    </div>
+    <div class="legend">${legend}</div>`;
+}

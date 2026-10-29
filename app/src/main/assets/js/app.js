@@ -258,7 +258,15 @@ function render() {
   netEl.textContent = (net < 0 ? '−' : '+') + viz.fmt(Math.abs(net));
   netEl.classList.toggle('neg', net < 0);
 
-  viz.renderCategoryBars($('#chart-categories'), viz.byCategory(txns));
+  // One colour system for both: the ring and the bars under it are the same
+  // categories, so they had better not be the same money in different colours.
+  const cats = viz.byCategory(txns);
+  const ringRows = viz.donutRows(cats);
+  const slots = store.chartSlots(ringRows.map((r) => r.category));
+  const slotOf = (c) => slots[c] ?? 7;
+  viz.renderDonut($('#chart-ring'), ringRows, slotOf, { label: 'spent this cycle' });
+  viz.renderCategoryBars($('#chart-categories'), cats, slotOf);
+  wireDrill($('#chart-ring'));
   wireDrill($('#chart-categories'));
   const t = viz.overTime(txns);
   viz.renderTrend($('#chart-trend'), t.buckets, t.grain);
@@ -2510,6 +2518,16 @@ function wireMenu() {
   };
 
   btn.addEventListener('click', () => show(menu.hidden));
+  // Scrolling the page with a menu open is a menu you have forgotten about,
+  // sitting over the thing you are trying to read. The gesture is listened for
+  // as well as the scroll it causes: a scroll event is not guaranteed (a list
+  // already at its end fires none) and the intent is the same either way.
+  const closeOnMove = () => {
+    if (!menu.hidden) show(false);
+  };
+  for (const ev of ['scroll', 'wheel', 'touchmove']) {
+    addEventListener(ev, closeOnMove, { passive: true, capture: true });
+  }
   if (scrim) scrim.addEventListener('click', () => show(false));
   // Every row closes it: a menu you have to dismiss as well as choose from is
   // one more tap than anyone wants. The update buttons are the exception -
@@ -3400,6 +3418,10 @@ function closeCategoryPicker(value) {
   if (done) done(value || null);
 }
 
+/** Every category dropdown in the app, wherever it lives. */
+const CATEGORY_SELECTS =
+  'select.cat, select.triage-cat, #cat-filter, #bulk-cat, #nr-cat, #pad-cat, select.budget-assign';
+
 function wireCategoryPicker() {
   const box = $('#catpick');
 
@@ -3417,14 +3439,33 @@ function wireCategoryPicker() {
     if (e.target === box) closeCategoryPicker(null);
   });
 
-  // Every category dropdown in the app, wherever it lives, including the ones
-  // drawn after this runs.
-  const CATEGORY_SELECTS = 'select.cat, select.triage-cat, #cat-filter, #bulk-cat, #nr-cat, #pad-cat, select.budget-assign';
+  // Why a click and not a touch: suppressing the phone's own picker means
+  // cancelling the touch that would open it, and a cancelled touch on a list
+  // cannot scroll either - so dragging past a row opened its categories. The
+  // selects are made untouchable in CSS instead, which lets the finger scroll
+  // the list underneath them, and the CLICK that only fires when you did not
+  // scroll is what opens ours.
   const intercept = (e) => {
-    const sel = e.target.closest && e.target.closest(CATEGORY_SELECTS);
+    // A tap inside the picker is a choice, not a request to open one. Without
+    // this it would look under the overlay, find whatever row happens to sit
+    // beneath the list, and open that row's categories instead.
+    if (e.target.closest && e.target.closest('#catpick')) return;
+    // The select takes no pointer events, so the click lands on whatever is
+    // behind it - its own container. Finding it again means looking inside
+    // that container for a category dropdown the click actually landed on.
+    // (elementsFromPoint cannot do it: hit testing skips pointer-events: none,
+    // which is the very thing that lets the list scroll under the finger.)
+    const over = (el) => {
+      const r = el.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    };
+    let sel = null;
+    for (let node = e.target; node && node !== document && !sel; node = node.parentElement) {
+      sel = [...node.querySelectorAll(CATEGORY_SELECTS)].find(over) || null;
+      if (node.classList && node.classList.contains('view')) break; // far enough
+    }
     if (!sel || sel.disabled) return;
     e.preventDefault();
-    sel.blur();
     openCategoryPicker(sel).then((value) => {
       if (value == null || value === sel.value) return;
       // The option may not be in this select yet (a row's picker holds only its
@@ -3436,8 +3477,7 @@ function wireCategoryPicker() {
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     });
   };
-  document.addEventListener('mousedown', intercept, true);
-  document.addEventListener('touchstart', intercept, { capture: true, passive: false });
+  document.addEventListener('click', intercept, true);
 }
 
 /* ---- Cash ---------------------------------------------------------------- */
