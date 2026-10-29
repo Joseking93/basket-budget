@@ -13,7 +13,7 @@
 // as "Ksh 2.00 from 1,000.00". Positional groups make that mistake invisible;
 // named ones make it impossible.
 
-const CUR = String.raw`(?:Ksh|KES)\s?`;
+const CUR = String.raw`(?:Kshs?|KES)\s?`;
 const NUM = String.raw`[\d,]+(?:\.\d{1,2})?`;
 const RECEIPT = String.raw`(?<rcpt>[A-Z0-9]{10})`;
 // Safaricom is inconsistent about the gap after "Confirmed" — sometimes a full
@@ -21,10 +21,10 @@ const RECEIPT = String.raw`(?<rcpt>[A-Z0-9]{10})`;
 const CONF = `${RECEIPT}\\s*[Cc]onfirmed[.\\s]*`;
 const DATE = String.raw`(?<d>\d{1,2}\/\d{1,2}\/\d{2,4})`;
 const TIME = String.raw`(?<t>\d{1,2}:\d{2}\s?(?:[AP]\.?M\.?)?)`;
-const AT = `on ${DATE} at ${TIME}`;
+const AT = `on\\s+${DATE}\\s*(?:at\\s*)?${TIME}`;
 // Every balance line, whether the message says "New M-PESA balance" (most of them)
 // or just "M-PESA balance" (the Fuliza repayments).
-const BAL = `(?:New )?M-PESA balance is`;
+const BAL = `(?:New |Your )?M-?PESA balance is`;
 
 const amt = (name) => `${CUR}(?<${name}>${NUM})`;
 
@@ -98,9 +98,58 @@ const PATTERNS = [
     who: 'M-PESA Credit',
   },
   {
+    // "Your loan repayment of Ksh2,716.00 from your M-PESA account to KCB
+    // M-PESA on 24/8/22 at 2:00 PM is successful."
+    type: 'Loan Repayment',
+    direction: 'Out',
+    re: new RegExp(
+      `${CONF}Your loan repayment of ${amt('amt')} from your M-PESA account to (?<who>.+?) ${AT}`,
+      'i'
+    ),
+  },
+  {
+    // "Loan of Ksh2,150.00 repaid from M-PESA on 5/4/24 at 5:36 PM." Nobody is
+    // named, so it carries the only thing the message says it is.
+    type: 'Loan Repayment',
+    direction: 'Out',
+    re: new RegExp(`${CONF}Loan of ${amt('amt')} repaid from M-PESA ${AT}`, 'i'),
+    who: 'Loan',
+  },
+  {
+    // "Your M-Shwari loan has been approved on 24/3/24 3:35 PM and Ksh1,970.00
+    // less excise duty has been deposited to your M-PESA account." Money in,
+    // and rules.js files the lender under credit rather than income.
+    type: 'Loan Disbursement',
+    direction: 'In',
+    re: new RegExp(
+      `${CONF}Your (?<who>[A-Za-z0-9&\\-. ]+?) loan has been approved ${AT} and ${amt('amt')}`,
+      'i'
+    ),
+  },
+  {
+    // "You have transferred Ksh500.00 from your KCB M-PESA account on ..."
+    // FROM the savings or loan account means money arriving in the wallet.
+    type: 'Savings',
+    direction: 'In',
+    re: new RegExp(
+      `${CONF}You have transferred ${amt('amt')} (?<dir>to|from) your (?<who>[A-Za-z0-9&\\-. ]+?) account[.\\s]*${AT}`,
+      'i'
+    ),
+    after: (t, g) => {
+      t.direction = /^from$/i.test(g.dir) ? 'In' : 'Out';
+      t.counterparty = clean(g.who) || 'M-PESA Savings';
+    },
+  },
+  {
+    // "You have sent Ksh800.52 to Hustler Fund on 28/12/2022  at 05:20 PM."
+    type: 'Customer Transfer',
+    direction: 'Out',
+    re: new RegExp(`${CONF}You have sent ${amt('amt')} to (?<who>.+?) ${AT}`, 'i'),
+  },
+  {
     type: 'Withdrawal',
     direction: 'Out',
-    re: new RegExp(`${CONF}${AT} Withdraw ${amt('amt')} from (?<who>.+?)\\s*${BAL}`, 'i'),
+    re: new RegExp(`${CONF}${AT}\\s*Withdraw ${amt('amt')} from (?<who>.+?)\\s*${BAL}`, 'i'),
   },
   {
     // Cash handed over at an agent. Money IN to the wallet, but it is your own
@@ -108,7 +157,7 @@ const PATTERNS = [
     // both, the same way a transfer between your own accounts is kept out.
     type: 'Cash Deposit',
     direction: 'In',
-    re: new RegExp(`${CONF}${AT} Give ${amt('amt')} cash to (?<who>.+?)\\s*${BAL}`, 'i'),
+    re: new RegExp(`${CONF}${AT}\\s*Give ${amt('amt')} cash to (?<who>.+?)\\s*${BAL}`, 'i'),
   },
   {
     type: 'Deposit',
@@ -196,6 +245,9 @@ const NOT_A_TRANSACTION = [
   /your statement (?:is|has been)/i,
   /PIN (?:has been|was) (?:changed|reset)/i,
   /opted (?:in|out)/i,
+  /loan request will be processed/i,
+  /loan (?:application|request) (?:was|has been) (?:received|declined|rejected)/i,
+  /you (?:do not|don't) have enough/i,
 ];
 
 /**
