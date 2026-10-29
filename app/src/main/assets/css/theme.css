@@ -157,6 +157,7 @@
 /* Without this, a `width: 100%` field plus its own padding is wider than its
    card — which is what made every input on a phone overflow and the row below
    it wrap into a column of 130px-tall boxes. */
+html { background: var(--bg); }
 *, *::before, *::after { box-sizing: border-box; }
 
 /* ── The engraving ───────────────────────────────────────────────────────── */

@@ -8,6 +8,17 @@
 <meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<script>
+  // Before anything paints: the stored theme, and a matching page colour.
+  try {
+    var m = localStorage.getItem('budget-theme');
+    if (m !== 'light' && m !== 'dark') {
+      m = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', m);
+    document.documentElement.style.background = m === 'dark' ? '#000' : '#f2f2f7';
+  } catch (e) {}
+</script>
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/styles.css">
 <script src="js/decal.js" defer></script>
@@ -595,6 +606,10 @@
         <option value="0">Everything on file</option>
       </select>
       <p class="hint" id="window-note"></p>
+      <p class="hint" id="date-census"></p>
+      <div class="row" id="undated-row" hidden>
+        <button id="btn-drop-undated" class="ghost">Remove the undated ones</button>
+      </div>
 
       <h3 class="debt-group">Moving between phone and laptop</h3>
       <p class="hint">Send a backup from one device and restore it on the other. Everything is keyed by M-PESA receipt, so importing can't double-count and re-importing the same file does nothing. Do it both ways and both devices end up with everything.</p>

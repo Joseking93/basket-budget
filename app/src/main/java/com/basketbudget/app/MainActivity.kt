@@ -265,11 +265,19 @@ class MainActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (sheetOpen) {
-                    runJs("window.bbCloseSheet && window.bbCloseSheet();")
-                    sheetOpen = false
-                } else {
-                    finish()
+                // Back has three jobs, in this order: close what is open, go
+                // back a screen, leave. It only ever did the first and the
+                // last, so from any screen inside the app - a report, the
+                // settings, the transaction list - back quit the app instead
+                // of returning to where you came from. The page pushes a
+                // history entry per screen, so the WebView already knows.
+                when {
+                    sheetOpen -> {
+                        runJs("window.bbCloseSheet && window.bbCloseSheet();")
+                        sheetOpen = false
+                    }
+                    web.canGoBack() -> web.goBack()
+                    else -> finish()
                 }
             }
         })

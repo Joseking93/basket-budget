@@ -133,8 +133,8 @@ function inRange(txns) {
 function visible() {
   const all = store.allTransactions();
   const cutoff = windowStart();
-  if (!cutoff) return all;
-  return all.filter((t) => !t.date || t.date >= cutoff);
+  if (!cutoff) return all.filter((t) => t.date);
+  return all.filter((t) => t.date && t.date >= cutoff);
 }
 
 /**
@@ -156,6 +156,7 @@ function warnAboutWindow(visibleTxns) {
   }
   const dates = onFile.map((t) => t.date).filter(Boolean).sort();
   const newest = dates.at(-1);
+  const undated = onFile.length - dates.length;
   const full = (iso) =>
     new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', {
       day: 'numeric',
@@ -163,8 +164,8 @@ function warnAboutWindow(visibleTxns) {
       year: 'numeric',
     });
   box.innerHTML = `<p><b>Nothing to show since ${escapeHtml(full(cutoff))}.</b>
-    ${onFile.length.toLocaleString('en-GB')} transactions are on file, but the newest is from
-    ${newest ? escapeHtml(full(newest)) : 'an undated row'} — so none of them fall inside the window.</p>
+    ${onFile.length.toLocaleString('en-GB')} transactions are on file. ${undated ? `${undated.toLocaleString('en-GB')} of them carry no date and can never be placed in a month. ` : ''}${newest ? 'The newest dated one is from' : ''}
+    ${newest ? `${escapeHtml(full(newest))} — so none of them fall inside the window.` : ''}</p>
     <div class="row">
       <button type="button" class="primary" data-go="intake">Read my messages again</button>
       <button type="button" class="ghost" data-go="data">Change the window</button>
@@ -1703,6 +1704,25 @@ function renderSettings() {
       on === read
         ? `Reading all ${n(on)} transaction${on === 1 ? '' : 's'} on file.`
         : `Reading ${n(read)} of ${n(on)} on file. The other ${n(on - read)} are kept, just not loaded.`;
+
+    // The census. When a screen is unexpectedly empty the first question is
+    // always "what dates are actually on file?", and nothing could answer it.
+    const dated = store.allTransactions().map((t) => t.date).filter(Boolean).sort();
+    const undated = store.undatedTransactions().length;
+    const day = (iso) =>
+      new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    $('#date-census').textContent = dated.length
+      ? `On file: ${day(dated[0])} to ${day(dated.at(-1))}.${undated ? ` ${n(undated)} carry no date.` : ''}`
+      : undated
+        ? `${n(undated)} transactions on file, and not one carries a date.`
+        : '';
+    $('#undated-row').hidden = !undated;
+    const drop = $('#btn-drop-undated');
+    if (drop) drop.textContent = `Remove the ${n(undated)} undated`;
   }
   $('#set-name').value = s.name || '';
   $('#set-phones').value = (s.phones || []).join(', ');
@@ -2283,6 +2303,27 @@ function wireViewLinks(root) {
 }
 
 function wireWindow() {
+  const drop = $('#btn-drop-undated');
+  if (drop) {
+    drop.addEventListener('click', () => {
+      const count = store.undatedTransactions().length;
+      if (!count) return;
+      // A parsing accident, but still the user's records, so say what this does.
+      const ok = confirm(
+        `Remove ${count} transaction${count === 1 ? '' : 's'} that have no date?
+
+` +
+          'They cannot be placed in any month, so no total, chart or report can use them. ' +
+          'Reading your messages again will bring back any that can be dated.'
+      );
+      if (!ok) return;
+      const gone = store.removeUndated();
+      render();
+      renderSettings();
+      toast(`Removed ${gone} undated transaction${gone === 1 ? '' : 's'}.`);
+    });
+  }
+
   const win = $('#set-window');
   if (!win) return;
   win.addEventListener('change', () => {

@@ -514,6 +514,24 @@ export function updatePayable(id, patch) {
   save();
 }
 
+/**
+ * Transactions with no date at all.
+ *
+ * They cannot be placed in a month, a cycle, a chart or a trend, so every screen
+ * that is organised by time either ignores them or is distorted by them. They
+ * are always a parsing accident, never something anyone entered.
+ */
+export function undatedTransactions() {
+  return Object.values(state.transactions).filter((t) => !t.date);
+}
+
+export function removeUndated() {
+  const gone = undatedTransactions();
+  for (const t of gone) delete state.transactions[t.id];
+  if (gone.length) save();
+  return gone.length;
+}
+
 export function removePayable(id) {
   state.payables = payables().filter((p) => p.id !== id);
   save();
