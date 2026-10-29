@@ -5,29 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Tracker</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0a0c0f">
+<meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/styles.css">
 <script src="js/decal.js" defer></script>
 </head>
 <body>
-
-<header class="topbar">
-  <div class="brand">
-    <h1>Budget Tracker</h1>
-    <span class="sub">Runs entirely on this device. Nothing is uploaded.</span>
-  </div>
-  <div class="controls">
-    <select id="range" aria-label="Time range">
-      <option value="all">All time</option>
-      <option value="7">Last 7 days</option>
-      <option value="30">Last 30 days</option>
-      <option value="90">Last 90 days</option>
-    </select>
-    <button id="btn-theme" class="ghost" title="Toggle light/dark">◐</button>
-  </div>
-</header>
 
 <main>
   <section class="home">
@@ -36,9 +21,10 @@
         <p class="today" id="home-today"></p>
         <h1 id="home-greet">Hello</h1>
       </div>
+      <button id="btn-theme" class="ghost themebtn" title="Switch between light and dark">◐</button>
     </div>
 
-    <section class="hero" id="hero" hidden>
+    <section class="hero" id="hero">
       <div class="hero-top">
         <span id="hero-cycle"></span>
         <span class="hero-pill" id="hero-days"></span>
@@ -102,6 +88,16 @@
   </details>
 
   <div id="unparsed" class="unparsed"></div>
+
+  <div class="rangerow">
+    <label class="hint" for="range">Showing</label>
+    <select id="range" aria-label="Time range">
+      <option value="all">All time</option>
+      <option value="7">Last 7 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+  </div>
 
   <section class="kpis">
     <div class="kpi lead">
@@ -352,6 +348,12 @@
     <div id="table-txns" class="scroll"></div>
   </details>
 </main>
+
+<nav class="tabs">
+  <a class="tab on" href="index.html">Tracker</a>
+  <a class="tab" href="basket.html">Basket</a>
+  <a class="tab" href="basket.html#receipts">Receipts</a>
+</nav>
 
 <div id="toast" class="toast"></div>
 <script type="module" src="js/app.js"></script>

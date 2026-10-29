@@ -1,59 +1,17 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Basket — Budget Tracker</title>
-<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 </head><body>
+<link rel="stylesheet" href="css/theme.css">
 <style>
-/* The two webfonts are bundled, so the type survives with no network. */
-@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;
-  src:url(fonts/inter-var-latin.woff2) format('woff2')}
-</style>
-<style>
-/* Two themes, switched by hand from the header.
-   Light is the Wallet look: a coloured budget card over grey, with a botanical
-   line engraving etched into the background.
-   Dark is Liquid Glass: translucent panels over black, floating tab bar. */
-:root, :root[data-theme="light"]{
-  --bg:#F2F2F7; --ink:#000000; --ink2:#6C6C70; --line:#E5E5EA;
-  --card:#FFFFFF; --card-line:#E5E5EA; --card-shadow:0 1px 2px rgba(0,0,0,.05);
-  --hero:#4B3FBF; --hero-ink:#FFFFFF; --hero-dim:rgba(255,255,255,.85);
-  --hero-track:rgba(255,255,255,.26); --hero-fill:#FFFFFF;
-  --tint:#4B3FBF; --on-tint:#FFFFFF; --tint-soft:#ECEBFA;
-  --warn:#B45309; --bad:#C0352B;
-  --shell:rgba(255,255,255,.88); --shell-line:#DCDCE1; --shell-shadow:0 6px 24px rgba(0,0,0,.10);
-  --decal-fill:#E4E2F4; --decal-line:#C2BDE5;
-  --body:"Inter",-apple-system,system-ui,sans-serif;
-  --mono:"Inter",-apple-system,system-ui,sans-serif;
-  --blur:none;
-  color-scheme:light;
-}
-:root[data-theme="dark"]{
-  --bg:#000000; --ink:#FFFFFF; --ink2:#A8A8AD; --line:rgba(255,255,255,.12);
-  --card:rgba(255,255,255,.06); --card-line:rgba(255,255,255,.11); --card-shadow:none;
-  --hero:rgba(255,255,255,.08); --hero-ink:#FFFFFF; --hero-dim:#A8A8AD;
-  --hero-track:rgba(255,255,255,.14); --hero-fill:#FF9F0A;
-  --tint:#FF9F0A; --on-tint:#241500; --tint-soft:rgba(255,159,10,.16);
-  --warn:#FFD60A; --bad:#FF6482;
-  --shell:rgba(40,40,42,.72); --shell-line:rgba(255,255,255,.16); --shell-shadow:none;
-  --decal-fill:rgba(255,255,255,.13); --decal-line:rgba(255,255,255,.34);
-  --blur:blur(24px);
-  color-scheme:dark;
-}
-
 *{-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
   padding-block:0 118px}
 
-/* The engraving. Fixed, so it sits behind everything and never scrolls - which
-   is also what gives the glass something to refract in the dark theme. */
-.decal{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.decal svg{position:absolute;fill:var(--decal-fill);stroke:var(--decal-line)}
-.decal .d1{top:-84px;right:-110px;width:380px;transform:rotate(8deg)}
-.decal .d2{bottom:20px;left:-146px;width:344px;transform:rotate(-166deg)}
-
 .wrap{position:relative;z-index:1;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0}
+.num{font-variant-numeric:tabular-nums;letter-spacing:0}
 
 /* ---- header ---------------------------------------------------------- */
 .hello{padding-top:52px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -167,16 +125,6 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
 .actions .ghost{flex:1;padding:12px}
 .empty2{color:var(--ink2);font-size:13px;padding:6px 0;line-height:1.5}
 .search{width:100%;box-sizing:border-box}
-
-/* ---- the floating tab bar -------------------------------------------- */
-.tabs{position:fixed;left:50%;transform:translateX(-50%);
-  bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:4px;padding:5px;
-  border-radius:999px;background:var(--shell);border:1px solid var(--shell-line);
-  box-shadow:var(--shell-shadow);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
-.tab{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:999px;border:0;
-  background:transparent;color:var(--ink2);font-size:14px;font-weight:600;cursor:pointer;
-  font-family:inherit}
-.tab.on{background:var(--tint);color:var(--on-tint)}
 
 /* ---- the review sheet ------------------------------------------------ */
 .sheet{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);display:flex;
@@ -314,6 +262,7 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
 
 
 <nav class="tabs">
+  <a class="tab" href="index.html">Tracker</a>
   <button type="button" class="tab on" id="tabBasket">Basket</button>
   <button type="button" class="tab" id="tabReceipts">Receipts</button>
 </nav>
@@ -483,7 +432,10 @@ function renderCycle(basket){
 }
 
 /* ---- Light or dark, Jose's choice ------------------------------------- */
-const TKEY='basket-theme';
+/* One key for both pages: switching the theme in Basket and finding the
+   tracker still light is the sort of seam that gives away two apps bolted
+   together. The old per-page keys are read once so nothing resets. */
+const TKEY='budget-theme';
 const SUN='<circle cx="12" cy="12" r="4.2"></circle><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path>';
 const MOON='<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path>';
 function applyTheme(mode){
@@ -498,7 +450,7 @@ function applyTheme(mode){
 }
 function startTheme(){
   let mode=null;
-  try{mode=localStorage.getItem(TKEY)}catch(e){}
+  try{mode=localStorage.getItem(TKEY)||localStorage.getItem('basket-theme')||localStorage.getItem('mpesa-theme')}catch(e){}
   if(mode!=='light'&&mode!=='dark'){
     mode=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
   }
@@ -1002,6 +954,7 @@ $('oneDelete').onclick=()=>{
 };
 
 startTheme();
+if(location.hash==='#receipts')show('receipts');
 greet();
 render();
 renderReceipts();

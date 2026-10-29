@@ -7,13 +7,18 @@ import { ACCOUNT_LABELS } from './import.js';
 const KES = new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 });
 const fmt = (n) => KES.format(Math.round(n));
 
-// Single-hue blue ramp, ordered by spend. This is an *ordinal* ramp (discrete ranked
+// Single-hue ramp, ordered by spend. This is an *ordinal* ramp (discrete ranked
 // categories), not a continuous sequential one, so every step must stay visible
-// against the surface — the step nearest the surface still clears 2:1. Hence light
-// starts at step 250 (2.06:1) rather than step 100 (1.29:1, invisible), and dark
-// stops at step 600 (2.15:1) rather than step 700 (1.46:1).
-const RAMP_LIGHT = ['#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];
-const RAMP_DARK = ['#184f95', '#1c5cab', '#256abf', '#2a78d6', '#3987e5', '#5598e7', '#6da7ec', '#86b6ef', '#9ec5f4', '#b7d3f6'];
+// against the surface — the step nearest the surface still clears 2:1.
+//
+// The hue is the app's own: amber on black, indigo on white. It was blue, from
+// when this page had a palette of its own, and a column of blue bars was the
+// last thing still announcing that the tracker and Basket used to be two
+// different apps. Safe to re-hue because an ordinal ramp carries its meaning in
+// LIGHTNESS, which is ordered here and reads the same to everyone; the one thing
+// that must never be re-picked by eye is a categorical set, and there isn't one.
+const RAMP_LIGHT = ['#b0a8e8', '#9f96e0', '#8e84d8', '#7d71d0', '#6c5fc6', '#5c4fba', '#4f42a9', '#443896', '#3a2f82', '#2f266b'];
+const RAMP_DARK = ['#8a5a00', '#a06800', '#b77700', '#cf8700', '#e69600', '#ff9f0a', '#ffb13a', '#ffc264', '#ffd28d', '#ffe3b8'];
 
 const isDark = () =>
   document.documentElement.dataset.theme === 'dark' ||
@@ -149,7 +154,7 @@ export function renderTrend(el, buckets, grain) {
   const ih = H - PAD.t - PAD.b;
   const bw = Math.min(48, (iw / buckets.length) * 0.68);
   const step = iw / buckets.length;
-  const hue = isDark() ? '#3987e5' : '#2a78d6';
+  const hue = isDark() ? '#ff9f0a' : '#4b3fbf';
 
   const ticks = [0, max / 2, max].map((v) => {
     const y = PAD.t + ih - (v / max) * ih;
@@ -258,7 +263,7 @@ export function renderBalance(el, series, label) {
   const min = Math.min(...vals, 0);
   const x = (i) => PAD.l + (i / (series.length - 1)) * iw;
   const y = (v) => PAD.t + ih - ((v - min) / (max - min || 1)) * ih;
-  const hue = isDark() ? '#3987e5' : '#2a78d6';
+  const hue = isDark() ? '#ff9f0a' : '#4b3fbf';
 
   const d = series.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ');
   const area = `${d} L${x(series.length - 1).toFixed(1)},${y(min)} L${x(0).toFixed(1)},${y(min)} Z`;

@@ -2501,8 +2501,7 @@ function wire() {
 
   $('#btn-theme').addEventListener('click', () => {
     const cur = document.documentElement.dataset.theme;
-    document.documentElement.dataset.theme = cur === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('mpesa-theme', document.documentElement.dataset.theme);
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
     render(); // charts pick colors per-mode, so they must be redrawn
   });
 
@@ -2559,8 +2558,7 @@ function registerSW() {
 }
 
 async function init() {
-  const saved = localStorage.getItem('mpesa-theme');
-  if (saved) document.documentElement.dataset.theme = saved;
+  startTheme();
 
   store.load();
   // Identity must reach config before anything parses or categorises — isSelf() and
@@ -2654,7 +2652,7 @@ function renderHome(all) {
   // Which month today belongs to - the same question the reports ask of every
   // transaction, so the answer is the same resolver.
   const month = monthResolver(all)({ date: `${todayIso}T12:00:00` }) || todayIso.slice(0, 7);
-  const { report, budgeted, spent, cycleStart } = budgetReport(store.budgets(), all, month);
+  const { report, budgeted, spent, outside, cycleStart } = budgetReport(store.budgets(), all, month);
   const { from, to } = cycleBounds(all, cycleStart, todayIso);
 
   const name = (store.settings().name || '').trim();
@@ -2667,21 +2665,24 @@ function renderHome(all) {
     month: 'long',
   });
 
-  // With no budget set there is nothing to be left of, so the card stays away
-  // rather than showing a confident zero.
-  const hero = $('#hero');
-  hero.hidden = !(budgeted > 0);
+  const days = Math.max(0, Math.round((Date.parse(to) - Date.parse(todayIso)) / 86400000));
+  $('#hero-cycle').textContent = `${monthLabel(month)} · ${shortDate(from)} – ${shortDate(to)}`;
+  $('#hero-days').textContent = days === 0 ? 'last day' : `${days} day${days === 1 ? '' : 's'} left`;
+
   if (budgeted > 0) {
     const left = budgeted - spent;
-    const days = Math.max(0, Math.round((Date.parse(to) - Date.parse(todayIso)) / 86400000));
-    $('#hero-cycle').textContent = `${monthLabel(month)} · ${shortDate(from)} – ${shortDate(to)}`;
-    $('#hero-days').textContent = days === 0 ? 'last day' : `${days} day${days === 1 ? '' : 's'} left`;
     $('#hero-left').textContent = viz.fmt(Math.abs(left));
     $('#hero-sub').textContent =
       left >= 0
         ? `left of your ${viz.fmt(budgeted)} across every category`
         : `over your ${viz.fmt(budgeted)} for this month`;
     $('#hero-fill').style.width = `${Math.min(100, (spent / budgeted) * 100)}%`;
+  } else {
+    // No budget yet. Showing "0 left of 0" would be a confident lie, so the
+    // card answers the question it still can: what has gone out this month.
+    $('#hero-left').textContent = viz.fmt(spent + outside);
+    $('#hero-sub').textContent = 'spent this month — set a budget below to see what is left';
+    $('#hero-fill').style.width = '0%';
   }
 
   renderBasketRow();
@@ -2778,6 +2779,48 @@ function pullBasketReceipts() {
     /* Not fatal: at worst a deleted receipt reappears once. */
   }
   return fresh.length;
+}
+
+/* ---- Light or dark, for the whole app ------------------------------------ */
+/*
+ * One key for both pages. Switching the theme in Basket and finding the
+ * tracker still light is exactly the sort of seam that gives away two apps
+ * bolted together. The old per-page keys are read once so nothing resets.
+ */
+const THEME_KEY = 'budget-theme';
+
+function applyTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  $('#btn-theme').textContent = mode === 'dark' ? '◑' : '◐';
+  try {
+    localStorage.setItem(THEME_KEY, mode);
+  } catch (e) {
+    /* private browsing */
+  }
+  // The status and navigation bars are Android's, so they have to be told.
+  try {
+    if (window.Android && window.Android.setChrome) {
+      window.Android.setChrome(mode === 'dark' ? '#000000' : '#F2F2F7', mode === 'dark');
+    }
+  } catch (e) {
+    /* older build without the bridge */
+  }
+}
+
+function startTheme() {
+  let mode = null;
+  try {
+    mode =
+      localStorage.getItem(THEME_KEY) ||
+      localStorage.getItem('mpesa-theme') ||
+      localStorage.getItem('basket-theme');
+  } catch (e) {
+    mode = null;
+  }
+  if (mode !== 'light' && mode !== 'dark') {
+    mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  applyTheme(mode);
 }
 
 /* ---- Updating the app itself --------------------------------------------- */

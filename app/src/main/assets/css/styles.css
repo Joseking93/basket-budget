@@ -1,129 +1,53 @@
 /* ==========================================================================
-   M-PESA Tracker — visual system
+   Budget Tracker — the dashboard's own components
    ==========================================================================
-   Dark is the primary theme, not an inversion of the light one: the surfaces,
-   ink and borders below were each chosen against the dark plane and checked
-   with the palette validator (categorical set, status colours, the sequential
-   ramp and every ink step clear their floors against --surface-1). Light is a
-   selected counterpart, not a filter flip.
+   The palette is not here. css/theme.css owns it, and Basket uses the same
+   file, because two stylesheets with two ideas about what a card looks like
+   is precisely how this ended up reading as two different apps.
 
-   The data colours themselves are unchanged from the validated reference set —
-   they are colourblind-safe by measurement, and re-picking them by eye would
-   throw that away. What changed is everything around them: deeper, cooler
-   surfaces, a real elevation scale, and a typographic hierarchy that lets a
-   number be the loudest thing on the screen.
+   What is here is the mapping from this page's older names onto those tokens,
+   and the components only the dashboard has: tables, charts, the triage list,
+   the split editor. The categorical data colours in js/dashboard.js are
+   deliberately untouched — they are colourblind-safe by measurement and
+   re-picking them by eye would throw that away.
    ========================================================================== */
 
 :root {
-  color-scheme: dark;
+  --plane:      var(--bg);
+  --surface-1:  var(--card);
+  --surface-2:  var(--card-2);
+  --surface-3:  var(--card-3);
 
-  /* Surfaces — four planes, each a step up out of the page. */
-  --plane:      #0a0c0f;   /* the page itself */
-  --surface-1:  #12151a;   /* cards */
-  --surface-2:  #171b21;   /* wells, inputs, insets */
-  --surface-3:  #1e232b;   /* hover / raised */
+  --text-primary:   var(--ink);
+  --text-secondary: var(--ink3);
+  --muted:          var(--ink2);
 
-  /* Ink */
-  --text-primary:   #f2f4f7;
-  --text-secondary: #aab2bf;
-  --muted:          #7d8695;
+  --border:        var(--card-line);
+  --border-strong: var(--card-line-strong);
 
-  /* Lines */
-  --border:        rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --grid:          #21262e;
-  --axis:          #333944;
+  --accent:      var(--tint);
+  --accent-soft: var(--tint-soft);
+  --accent-line: var(--tint-line);
+  --on-accent:   var(--on-tint);
+  --critical:      var(--bad);
+  --critical-soft: var(--bad-soft);
+  --warning:     var(--warn);
+  --warn-bg:     var(--tint-soft);
 
-  /* Roles */
-  --accent:      #3987e5;
-  --accent-soft: rgba(57, 135, 229, 0.14);
-  --accent-line: rgba(57, 135, 229, 0.45);
-  --good:        #0ca30c;
-  --warning:     #fab219;
-  --critical:    #d03b3b;
-  --critical-soft: rgba(208, 59, 59, 0.12);
-  --warn-bg:     #241d0c;
-
-  /* Sequential ramp — one hue, light→dark, for magnitude only. */
-  --ramp-1: #9ec5f4;
-  --ramp-2: #6da7ec;
-  --ramp-3: #3987e5;
-  --ramp-4: #256abf;
-  --ramp-5: #184f95;
-
-  /* Shape & depth */
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-1: var(--card-shadow);
   --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.35);
   --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.6);
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-
-  /* The home screen's hero card, and the engraving behind the page. Dark is
-     the glass treatment: a translucent panel over the plane, which needs
-     something underneath it to refract - hence a frosted decal, not a line
-     drawing. The data colours above are untouched; this is only the chrome. */
-  --hero:       rgba(255, 255, 255, 0.07);
-  --hero-line:  rgba(255, 255, 255, 0.14);
-  --hero-ink:   #f2f4f7;
-  --hero-dim:   #aab2bf;
-  --hero-track: rgba(255, 255, 255, 0.14);
-  --hero-fill:  #ff9f0a;
-  --hero-blur:  blur(24px);
-  --decal-fill: rgba(255, 255, 255, 0.085);
-  --decal-line: rgba(255, 255, 255, 0.24);
 }
-
-:root[data-theme="light"] {
-  color-scheme: light;
-  --plane:      #f4f5f7;
-  --surface-1:  #ffffff;
-  --surface-2:  #f7f8fa;
-  --surface-3:  #eef0f4;
-  --text-primary:   #0b0b0b;
-  --text-secondary: #4a4f57;
-  --muted:          #767d89;
-  --border:        rgba(11, 11, 11, 0.10);
-  --border-strong: rgba(11, 11, 11, 0.18);
-  --grid:          #e5e7eb;
-  --axis:          #c3c6cc;
-  --accent:      #2a78d6;
-  --accent-soft: rgba(42, 120, 214, 0.10);
-  --accent-line: rgba(42, 120, 214, 0.40);
-  /* On a pale ground a white engraving disappears, so it is tinted instead. */
-  --hero:       #4b3fbf;
-  --hero-line:  transparent;
-  --hero-ink:   #ffffff;
-  --hero-dim:   rgba(255, 255, 255, 0.85);
-  --hero-track: rgba(255, 255, 255, 0.26);
-  --hero-fill:  #ffffff;
-  --hero-blur:  none;
-  --decal-fill: #e4e2f4;
-  --decal-line: #c2bde5;
-  --good:        #006300;
-  --critical:    #d03b3b;
-  --critical-soft: rgba(208, 59, 59, 0.08);
-  --warn-bg:     #fff8e6;
-  --ramp-1: #cde2fb;
-  --ramp-2: #9ec5f4;
-  --ramp-3: #5598e7;
-  --ramp-4: #2a78d6;
-  --ramp-5: #184f95;
-  --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.06);
-  --shadow-2: 0 4px 16px rgba(11, 11, 11, 0.08);
-  --shadow-3: 0 24px 60px rgba(11, 11, 11, 0.18);
-}
-
-* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--plane);
-  color: var(--text-primary);
-  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 var(--body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Clear of the floating tab bar. */
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
 
 /* A wash of colour behind the page so a very dark plane doesn't read as flat
@@ -132,49 +56,53 @@ body::before {
   content: '';
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(900px 500px at 12% -8%, rgba(57, 135, 229, 0.10), transparent 60%),
-    radial-gradient(700px 420px at 96% 0%, rgba(144, 133, 233, 0.07), transparent 60%);
+    radial-gradient(900px 500px at 12% -8%, rgba(255, 159, 10, 0.05), transparent 60%),
+    radial-gradient(700px 420px at 96% 0%, rgba(255, 159, 10, 0.03), transparent 60%);
 }
-:root[data-theme="light"] body::before { opacity: .5; }
+:root[data-theme="light"] body::before {
+  background: radial-gradient(900px 500px at 12% -8%, rgba(75, 63, 191, 0.06), transparent 60%);
+}
 
-h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; font-weight: 650; }
-h2 { font-size: 14px; margin: 0; font-weight: 620; letter-spacing: -.005em; }
-h3 { font-size: 13px; margin: 0 0 2px; font-weight: 600; }
+h1 { font-size: 28px; margin: 0; letter-spacing: -.025em; font-weight: 700; }
+h2 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -.018em; }
+h3 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
 h4 { font-size: 13px; font-weight: 600; }
 
-/* ── Top bar ─────────────────────────────────────────────────────────────── */
-.topbar {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 16px; padding: 12px 22px;
-  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
-  backdrop-filter: saturate(1.6) blur(12px);
-  -webkit-backdrop-filter: saturate(1.6) blur(12px);
-  border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 10;
+.controls { display: flex; gap: 8px; align-items: center; flex: none; }
+.rangerow { display: flex; align-items: center; gap: 8px; margin: 2px 2px -4px; }
+.rangerow select { font-size: 13px; padding: 7px 28px 7px 10px; }
+.themebtn {
+  width: 38px; height: 38px; border-radius: 19px; padding: 0; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tint); font-size: 15px;
 }
-.brand { display: flex; flex-direction: column; gap: 1px; }
-.brand .sub { color: var(--muted); font-size: 11.5px; }
-.controls { display: flex; gap: 8px; align-items: center; }
 
 main {
-  max-width: 1200px; margin: 0 auto; padding: 22px 20px 64px;
+  max-width: 1200px; margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-left, 0px));
+  padding-top: 46px; padding-bottom: 10px;
   display: flex; flex-direction: column; gap: 14px;
 }
+@media (min-width: 900px) { main { padding-top: 28px; } }
 
 /* ── Cards ───────────────────────────────────────────────────────────────── */
 .card {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--card);
+  border: 1px solid var(--card-line);
   border-radius: var(--r-lg);
-  padding: 18px;
-  box-shadow: var(--shadow-1);
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  /* What makes the dark theme glass rather than grey: the engraving behind
+     the page shows through, blurred. */
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
 }
 
 details.card { padding: 0; transition: border-color .2s var(--ease); }
 details.card:hover { border-color: var(--border-strong); }
 details.card > summary {
   display: flex; align-items: center; gap: 9px;
-  padding: 15px 18px; cursor: pointer; user-select: none;
+  padding: 15px 16px; cursor: pointer; user-select: none;
   list-style: none; border-radius: var(--r-lg);
 }
 details.card > summary::-webkit-details-marker { display: none; }
@@ -189,8 +117,8 @@ details.card[open] > summary::before { transform: rotate(45deg); }
 details.card > summary:hover::before { border-color: var(--accent); }
 details.card > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 details.card > summary h2 { margin: 0; }
-details.card > *:not(summary) { margin-left: 18px; margin-right: 18px; }
-details.card > *:not(summary):last-child { margin-bottom: 18px; }
+details.card > *:not(summary) { margin-left: 16px; margin-right: 16px; }
+details.card > *:not(summary):last-child { margin-bottom: 16px; }
 details.card[open] > summary {
   border-bottom: 1px solid var(--border);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
@@ -221,8 +149,8 @@ details.card[open] > summary {
 
 /* ── Controls ────────────────────────────────────────────────────────────── */
 textarea, input, select {
-  font: inherit; color: var(--text-primary); background: var(--surface-2);
-  border: 1px solid var(--border); border-radius: var(--r-sm); padding: 8px 11px;
+  font: inherit; color: var(--ink); background: var(--card-2);
+  border: 1px solid var(--card-line); border-radius: var(--r-sm); padding: 10px 12px;
   transition: border-color .15s var(--ease), box-shadow .15s var(--ease), background .15s var(--ease);
 }
 textarea:hover, input:hover, select:hover { border-color: var(--border-strong); }
@@ -242,9 +170,9 @@ select {
 }
 
 button, .filebtn {
-  font: inherit; font-weight: 500; border-radius: var(--r-sm); padding: 8px 14px;
-  border: 1px solid var(--border); cursor: pointer;
-  background: var(--surface-2); color: var(--text-primary);
+  font: inherit; font-weight: 600; border-radius: var(--r-sm); padding: 10px 16px;
+  border: 1px solid var(--card-line); cursor: pointer;
+  background: var(--card-2); color: var(--ink);
   transition: background .15s var(--ease), border-color .15s var(--ease),
               transform .1s var(--ease), box-shadow .15s var(--ease);
 }
@@ -252,10 +180,11 @@ button:hover, .filebtn:hover { background: var(--surface-3); border-color: var(-
 button:active { transform: translateY(1px); }
 button:focus-visible, .filebtn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary {
-  background: var(--accent); border-color: transparent; color: #fff; font-weight: 600;
-  box-shadow: 0 1px 3px rgba(57, 135, 229, 0.4);
+  /* Amber needs dark text on it; white on amber is unreadable. */
+  background: var(--tint); border-color: transparent; color: var(--on-tint); font-weight: 600;
+  box-shadow: none;
 }
-button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); border-color: transparent; }
+button.primary:hover { background: color-mix(in srgb, var(--tint) 88%, #fff); border-color: transparent; }
 button.danger { color: var(--critical); }
 button.danger:hover { background: var(--critical-soft); border-color: var(--critical); }
 button.ghost { background: transparent; }
@@ -692,9 +621,7 @@ tr.is-stale { opacity: .55; }
 
 /* ── Phone ───────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  main { padding: 12px 12px 48px; gap: 12px; }
-  .topbar { padding: 10px 13px; }
-  .brand .sub { display: none; }
+  main { padding: 16px 16px 10px; padding-top: 46px; gap: 12px; }
   .card { padding: 14px; }
   details.card > summary { padding: 13px 14px; }
   details.card > *:not(summary) { margin-left: 14px; margin-right: 14px; }
@@ -705,7 +632,10 @@ tr.is-stale { opacity: .55; }
   .kpi.lead .kpi-value { font-size: 27px; }
   .debt-grid { grid-template-columns: 1fr; }
   .filters, .namerule-add, .bulk-bar { flex-direction: column; align-items: stretch; }
-  .filters select, .filters input, .namerule-add input, .namerule-add select { width: 100%; max-width: none; }
+  .filters select, .filters input, .namerule-add input, .namerule-add select {
+    width: 100%; max-width: none; flex: 0 0 auto;
+  }
+  .namerule-add button, .filters button { width: 100%; }
   #filter-count { margin-left: 0; }
   .scroll, #table-merchants, #recurring, #budget, #refunds, #triage, #track { overflow-x: auto; }
   .txns, .mini { min-width: 520px; }

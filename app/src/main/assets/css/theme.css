@@ -1,0 +1,175 @@
+/* ==========================================================================
+   Budget Tracker — one palette, both pages
+   ==========================================================================
+   The tracker and Basket used to carry their own looks, which is exactly how
+   one app ends up reading as two stitched together. Everything visual that
+   both pages share now lives here: the type, the two themes, the engraving
+   and the tab bar. A page's own stylesheet may add components; it does not
+   get to invent colours.
+
+   Dark is the one it was designed for: Apple's Liquid Glass — translucent
+   panels over black, with the engraving behind them to refract. Light is
+   Wallet: a coloured card over grey. They are counterparts, not a filter
+   flip, which is why each theme sets every token rather than inheriting.
+   ========================================================================== */
+
+/* Bundled, so the type survives with no network. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(../fonts/inter-var-latin.woff2) format('woff2');
+}
+
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --ink: #ffffff;
+  --ink2: #a8a8ad;
+  --ink3: #c9c9ce;
+  --line: rgba(255, 255, 255, 0.12);
+
+  --card: rgba(255, 255, 255, 0.06);
+  --card-2: rgba(255, 255, 255, 0.04);
+  --card-3: rgba(255, 255, 255, 0.10);
+  --card-line: rgba(255, 255, 255, 0.11);
+  --card-line-strong: rgba(255, 255, 255, 0.20);
+  --card-shadow: none;
+
+  --hero: rgba(255, 255, 255, 0.08);
+  --hero-line: rgba(255, 255, 255, 0.14);
+  --hero-ink: #ffffff;
+  --hero-dim: #a8a8ad;
+  --hero-track: rgba(255, 255, 255, 0.14);
+  --hero-fill: #ff9f0a;
+
+  --tint: #ff9f0a;
+  --on-tint: #241500;
+  --tint-soft: rgba(255, 159, 10, 0.16);
+  --tint-line: rgba(255, 159, 10, 0.45);
+
+  --good: #30d158;
+  --warn: #ffd60a;
+  --bad: #ff6482;
+  --bad-soft: rgba(255, 100, 130, 0.14);
+
+  --grid: rgba(255, 255, 255, 0.10);
+  --axis: rgba(255, 255, 255, 0.22);
+
+  /* Sequential, light→dark, for magnitude only. Ordered by lightness, which
+     is what makes a ramp readable to everyone; the categorical data colours
+     are a separate, measured set and are not touched here. */
+  --ramp-1: #ffd9a0;
+  --ramp-2: #ffc46b;
+  --ramp-3: #ff9f0a;
+  --ramp-4: #c97a00;
+  --ramp-5: #8f5600;
+
+  --shell: rgba(40, 40, 42, 0.72);
+  --shell-line: rgba(255, 255, 255, 0.16);
+  --shell-shadow: none;
+
+  --decal-fill: rgba(255, 255, 255, 0.055);
+  --decal-line: rgba(255, 255, 255, 0.15);
+
+  --blur: blur(24px);
+  --body: "Inter", -apple-system, system-ui, sans-serif;
+  /* Kept as a name some rules still use; the numerals are Inter’s tabular set. */
+  --mono: "Inter", -apple-system, system-ui, sans-serif;
+  --r-sm: 12px;
+  --r-md: 15px;
+  --r-lg: 18px;
+  --r-xl: 22px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f2f2f7;
+  --ink: #000000;
+  --ink2: #6c6c70;
+  --ink3: #3c3c43;
+  --line: #e5e5ea;
+
+  --card: #ffffff;
+  --card-2: #f7f7fa;
+  --card-3: #efeff4;
+  --card-line: #e5e5ea;
+  --card-line-strong: #d6d6db;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  --hero: #4b3fbf;
+  --hero-line: transparent;
+  --hero-ink: #ffffff;
+  --hero-dim: rgba(255, 255, 255, 0.85);
+  --hero-track: rgba(255, 255, 255, 0.26);
+  --hero-fill: #ffffff;
+
+  --tint: #4b3fbf;
+  --on-tint: #ffffff;
+  --tint-soft: #ecebfa;
+  --tint-line: rgba(75, 63, 191, 0.40);
+
+  --good: #1f7a4d;
+  --warn: #b45309;
+  --bad: #c0352b;
+  --bad-soft: rgba(192, 53, 43, 0.10);
+
+  --grid: #ececf1;
+  --axis: #c7c7cc;
+
+  --ramp-1: #cfcaf0;
+  --ramp-2: #a49ce2;
+  --ramp-3: #7b70d4;
+  --ramp-4: #5a4fc0;
+  --ramp-5: #3f3596;
+
+  --shell: rgba(255, 255, 255, 0.88);
+  --shell-line: #dcdce1;
+  --shell-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+
+  /* White would vanish on a pale ground, so the engraving is tinted instead. */
+  --decal-fill: #eceafa;
+  --decal-line: #d9d5ee;
+
+  --blur: none;
+}
+
+/* Without this, a `width: 100%` field plus its own padding is wider than its
+   card — which is what made every input on a phone overflow and the row below
+   it wrap into a column of 130px-tall boxes. */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── The engraving ───────────────────────────────────────────────────────── */
+/* Fixed and behind everything: it must not scroll into view as a seam, and in
+   the dark theme it is what the glass panels have to refract. */
+.decal {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+}
+.decal svg { position: absolute; fill: var(--decal-fill); stroke: var(--decal-line); }
+.decal .d1 { top: -70px; right: -130px; width: 320px; transform: rotate(8deg); }
+.decal .d2 { bottom: 54px; left: -150px; width: 290px; transform: rotate(-166deg); }
+
+/* ── The floating tab bar ────────────────────────────────────────────────── */
+/* The same bar on both pages, so moving between them feels like one app. */
+.tabs {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  z-index: 30; display: flex; gap: 4px; padding: 5px;
+  border-radius: 999px; background: var(--shell); border: 1px solid var(--shell-line);
+  box-shadow: var(--shell-shadow);
+  backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+}
+.tab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 20px; border-radius: 999px; border: 0;
+  background: transparent; color: var(--ink2);
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.tab.on { background: var(--tint); color: var(--on-tint); }
+
+@media print { .decal, .tabs { display: none !important; } }
