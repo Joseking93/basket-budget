@@ -54,6 +54,12 @@
       <button class="menurow" type="button" data-go="budget">Budget<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="menurow" type="button" data-go="settings">Who you are<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="menurow" type="button" data-go="data">Data &amp; sync<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <hr>
+      <div id="update-box" class="menu-update" hidden>
+        <p class="hint" id="update-msg"></p>
+        <button id="btn-update" class="ghost">Check for updates</button>
+        <button id="btn-install" class="primary" hidden>Install it</button>
+      </div>
       <p class="menu-ver" id="menu-version"></p>
     </nav>
 
@@ -421,6 +427,17 @@
 
   <!-- Cash. The money that leaves the wallet and stops being traceable, which
        until now was a single lump per withdrawal with nothing said about it. -->
+  <!-- One searchable list for every category dropdown. A phone's own picker is
+       thirty rows of scrolling with no way to type, on the control used most. -->
+  <div id="catpick" class="modal-overlay" hidden>
+    <div class="modal catpick" role="dialog" aria-modal="true" aria-label="Choose a category">
+      <input type="search" id="catpick-search" class="pick-search" placeholder="Type to find a category…"
+             autocomplete="off" aria-label="Search categories">
+      <div class="pick-list" id="catpick-list"></div>
+      <button type="button" class="ghost pick-close" id="catpick-close">Close</button>
+    </div>
+  </div>
+
   <section class="view" data-view="cash" hidden>
     <header class="viewbar">
       <button class="back" type="button" aria-label="Back">
@@ -743,15 +760,6 @@
         </label>
       </div>
       <p class="hint note">Transactions, rules and categories <strong>merge</strong>. Single values — a budget amount, a debt balance — take the incoming file's version, so restoring the <em>older</em> device into the newer one can overwrite a figure you just fixed. It reports what changed.</p>
-
-      <div id="update-box" hidden>
-        <h3 class="debt-group">This app</h3>
-        <p class="hint" id="update-msg"></p>
-        <div class="row">
-          <button id="btn-update" class="ghost">Check for updates</button>
-          <button id="btn-install" class="primary" hidden>Install it</button>
-        </div>
-      </div>
 
       <h3 class="debt-group">Danger</h3>
       <div class="row">

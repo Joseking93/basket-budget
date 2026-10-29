@@ -2964,6 +2964,7 @@ async function init() {
   wireSettings();
   wireSms();
   wireCash();
+  wireCategoryPicker();
   wireUpdates();
   // Basket's receipts live at this same origin now, so they are simply read.
   pullBasketReceipts();
@@ -3287,6 +3288,126 @@ function renderHomeUpcoming(all) {
       label: `Every payment to ${el.dataset.due}`,
     }));
   });
+}
+
+/* ---- Choosing a category -------------------------------------------------- */
+//
+// A phone's own <select> picker is thirty-odd rows of scrolling with no way to
+// type, and this is the control the whole app is built around - it gets used
+// more than everything else put together. So the native one is intercepted and
+// a searchable list opened instead, over the top of the same <select>: the
+// element keeps its value and still fires `change`, so every handler that was
+// listening carries on working and nothing downstream had to know.
+
+let pickResolve = null;
+let pickDraw = null;
+
+/** Categories ordered by how much you actually use them, commonest first. */
+function categoriesByUse() {
+  const counts = new Map();
+  // Decorated, not raw: a transaction only has a category once the rules have
+  // been run over it, and reading the raw rows gave an empty list every time.
+  for (const t of decorate(visible())) {
+    if (!t.category) continue;
+    counts.set(t.category, (counts.get(t.category) || 0) + 1);
+  }
+  return counts;
+}
+
+function openCategoryPicker(sel) {
+  const box = $('#catpick');
+  const list = $('#catpick-list');
+  const search = $('#catpick-search');
+  const current = sel.value;
+
+  // The select's own options when it has a full set of its own (the filter has
+  // an "All categories" row the registry knows nothing about); the registry
+  // otherwise, because a row's picker is only filled when it is touched.
+  const options =
+    sel.options.length > 1
+      ? [...sel.options].map((o) => ({ value: o.value, label: o.textContent }))
+      : Object.keys(CATEGORIES).map((c) => ({ value: c, label: c }));
+
+  const counts = categoriesByUse();
+  const used = options
+    .filter((o) => counts.get(o.value) && o.value !== current)
+    .sort((a, b) => counts.get(b.value) - counts.get(a.value))
+    .slice(0, 5);
+
+  const draw = (q) => {
+    const needle = q.trim().toLowerCase();
+    const hit = (o) => o.label.toLowerCase().includes(needle);
+    const matched = needle ? options.filter(hit) : options;
+    const top = needle ? [] : used;
+
+    const row = (o) =>
+      `<button type="button" class="pick-row${o.value === current ? ' is-on' : ''}" data-pick="${escapeHtml(o.value)}">${escapeHtml(o.label)}</button>`;
+
+    list.innerHTML = matched.length
+      ? (top.length ? `<p class="catpick-head">Most used</p>${top.map(row).join('')}<p class="catpick-head">Everything</p>` : '') +
+        matched.map(row).join('')
+      : `<p class="catpick-none">Nothing matches “${escapeHtml(q)}”.</p>`;
+  };
+
+  pickDraw = draw;
+  draw('');
+  search.value = '';
+  box.hidden = false;
+  // Not focused on a phone: the keyboard would cover the list, and most picks
+  // are a tap on one of the five at the top rather than anything typed.
+  if (window.matchMedia('(min-width: 760px)').matches) search.focus();
+
+  return new Promise((resolve) => {
+    pickResolve = resolve;
+  });
+}
+
+function closeCategoryPicker(value) {
+  $('#catpick').hidden = true;
+  pickDraw = null;
+  const done = pickResolve;
+  pickResolve = null;
+  if (done) done(value || null);
+}
+
+function wireCategoryPicker() {
+  const box = $('#catpick');
+
+  $('#catpick-search').addEventListener('input', (e) => {
+    if (pickDraw) pickDraw(e.target.value);
+  });
+
+  $('#catpick-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pick]');
+    if (!b) return;
+    closeCategoryPicker(b.dataset.pick);
+  });
+  $('#catpick-close').addEventListener('click', () => closeCategoryPicker(null));
+  box.addEventListener('click', (e) => {
+    if (e.target === box) closeCategoryPicker(null);
+  });
+
+  // Every category dropdown in the app, wherever it lives, including the ones
+  // drawn after this runs.
+  const CATEGORY_SELECTS = 'select.cat, select.triage-cat, #cat-filter, #bulk-cat, #nr-cat, #pad-cat, select.budget-assign';
+  const intercept = (e) => {
+    const sel = e.target.closest && e.target.closest(CATEGORY_SELECTS);
+    if (!sel || sel.disabled) return;
+    e.preventDefault();
+    sel.blur();
+    openCategoryPicker(sel).then((value) => {
+      if (value == null || value === sel.value) return;
+      // The option may not be in this select yet (a row's picker holds only its
+      // own category until it is touched), so put it there before setting it.
+      if (![...sel.options].some((o) => o.value === value)) {
+        sel.add(new Option(value, value));
+      }
+      sel.value = value;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  };
+  document.addEventListener('mousedown', intercept, true);
+  document.addEventListener('touchstart', intercept, { capture: true, passive: false });
 }
 
 /* ---- Cash ---------------------------------------------------------------- */
