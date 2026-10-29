@@ -240,6 +240,60 @@ const PATTERNS = [
   },
 ];
 
+
+/* ──────────────────────────────────────────────────────────────────────────
+   The banks
+   ──────────────────────────────────────────────────────────────────────────
+   What a bank adds is what the wallet cannot see: a card payment, and money
+   landing in the account. Almost everything else it texts about is the other
+   side of a movement M-PESA has already recorded — often quoting M-PESA's own
+   receipt in the text — so storing it would count the same money twice. Those
+   are recognised and deliberately not stored; see BANK_ECHOES.
+   ────────────────────────────────────────────────────────────────────────── */
+const BANK_PATTERNS = [
+  {
+    // "Dear Client, a transaction of KES 549.00 was made on card ending 6621
+    //  at Google Spotify Music on 2026-09-30."
+    // The one kind of spending that never touches the wallet at all.
+    type: 'Card Payment',
+    direction: 'Out',
+    re: new RegExp(
+      `transaction of ${amt('amt')} was made on card ending (?<card>\\d+) at (?<who>.+?) on (?<iso>\\d{4}-\\d{2}-\\d{2})`,
+      'i'
+    ),
+  },
+  {
+    // "Dear Client, KES 446900.25 has been deposited to Acc. ending with 7700."
+    // No date in the text, so it takes the message's own.
+    type: 'Bank Deposit',
+    direction: 'In',
+    re: new RegExp(`${amt('amt')} has been deposited to Acc\\.? ending with (?<acct>\\d+)`, 'i'),
+    who: 'Bank deposit',
+  },
+];
+
+/**
+ * A bank describing money the wallet has already recorded.
+ *
+ * Both halves of a bank-to-wallet transfer get their own text, and one of them
+ * usually quotes the M-PESA receipt, so there can be three messages for one
+ * movement. The wallet's own message is the better record of it — it names the
+ * counterparty and carries the fee — so these are read, counted as recognised,
+ * and not stored. Not storing them is the whole point: it is the only way the
+ * same money cannot be counted twice.
+ */
+const BANK_ECHOES = [
+  /to\s+MPESA has been processed/i,
+  /transferr?ed .* to your MPESA Account/i,
+  /M-?PESA REF:/i,
+  /MOBI LOAN/i,
+  /to KCB Mobile Loan has been received/i,
+  /loan No\.? \d+ is now fully paid/i,
+  /loan request/i,
+  /is now being processed/i,
+  /total limit is/i,
+];
+
 // A Fuliza draw rides along with whatever transaction it funded, so it is read
 // separately rather than as one of the shapes above.
 const FULIZA_RE = new RegExp(`${CONF}[^]*?Fuliza M-PESA amount is ${amt('amt')}`, 'i');
@@ -263,6 +317,7 @@ const NOT_A_TRANSACTION = [
   // "Your loan limit is 2500.00. A fee of 8.64% ..." - terms, not a payment.
   /loan limit is/i,
   /do not qualify/i,
+  /loan (?:no\.?|number)?\s*\d+ is now fully paid/i,
 ];
 
 /**
@@ -280,12 +335,17 @@ export function parseMessages(raw) {
   let lastDate = null;
 
   for (const block of splitMessages(raw)) {
-    const { body, at } = stripStamp(block);
-    const txns = parseOne(body, at || lastDate);
+    const { body, at, account } = stripStamp(block);
+    const txns = account
+      ? parseBank(body, account, at)
+      : parseOne(body, at || lastDate);
     if (txns.length) {
       transactions.push(...txns);
       lastDate = txns[0].date || lastDate;
-    } else if (NOT_A_TRANSACTION.some((re) => re.test(body))) {
+    } else if (
+      NOT_A_TRANSACTION.some((re) => re.test(body)) ||
+      (account && BANK_ECHOES.some((re) => re.test(body)))
+    ) {
       ignored++;
     } else {
       unparsed.push(body);
@@ -294,14 +354,29 @@ export function parseMessages(raw) {
   return { transactions, unparsed, ignored };
 }
 
-// The app wraps each message the phone hands over in its own timestamp, because
-// several M-PESA messages carry no date of their own.
-const STAMP_RE = /^#at (\d+)\n?/;
+// The app wraps each message the phone hands over in its own timestamp and the
+// name it came from: several M-PESA messages carry no date of their own, and a
+// bank's message has to be filed against the bank's account rather than the
+// wallet's.
+const STAMP_RE = /^#at (\d+)(?:[^\S\n]+([^\n]*))?\n?/;
+
+/** Which account a sender's messages belong to; absent means the wallet. */
+const ACCOUNTS = {
+  KCB: 'kcb',
+  STANCHART: 'stanchart',
+};
 
 function stripStamp(block) {
   const m = block.match(STAMP_RE);
-  if (!m) return { body: block, at: null };
-  return { body: block.slice(m[0].length).trim(), at: new Date(Number(m[1])).toISOString() };
+  if (!m) return { body: block, at: null, account: null };
+  const sender = (m[2] || '').trim().toUpperCase();
+  return {
+    body: block.slice(m[0].length).trim(),
+    at: new Date(Number(m[1])).toISOString(),
+    // "KCB M-PESA" is a Safaricom loan product, not the bank's own account; its
+    // money moves through the wallet and the wallet's messages already say so.
+    account: ACCOUNTS[sender] || null,
+  };
 }
 
 // Messages get pasted run-together. A receipt code followed by "Confirmed" reliably
@@ -313,7 +388,10 @@ function splitMessages(raw) {
   if (!text) return [];
 
   if (/^#at \d+/m.test(text)) {
-    return text.split(/\n(?=#at \d+\n)/).map((s) => s.trim()).filter(Boolean);
+    // The stamp carries the sender after the timestamp, so the lookahead cannot
+    // insist on a newline straight after the digits. When it did, nothing split
+    // at all and a whole batch arrived as one block.
+    return text.split(/\n(?=#at \d+(?:[^\S\n][^\n]*)?\n)/).map((s) => s.trim()).filter(Boolean);
   }
 
   const starts = [];
@@ -331,6 +409,38 @@ function splitMessages(raw) {
     blocks.push(text.slice(starts[i], starts[i + 1] ?? text.length).trim());
   }
   return blocks.filter(Boolean);
+}
+
+
+/** One message from a bank, filed against that bank's account. */
+function parseBank(block, account, at) {
+  for (const p of BANK_PATTERNS) {
+    const m = block.match(p.re);
+    if (!m) continue;
+    const g = m.groups;
+    const date = g.iso ? `${g.iso}T12:00:00.000Z` : at;
+    if (!date) return [];
+    // A bank message carries no receipt, so the id is built from what makes it
+    // unique: the account, the moment, and the amount.
+    const id = `${account}-${date.slice(0, 19)}-${g.amt.replace(/,/g, '')}`;
+    const txn = {
+      id,
+      receipt: null,
+      date,
+      amount: money(g.amt),
+      direction: p.direction,
+      type: p.type,
+      counterparty: clean(g.who) || p.who || p.type,
+      account: g.acct ? `ending ${g.acct}` : g.card ? `card ${g.card}` : null,
+      balance: null,
+      accountSource: account,
+      source: 'sms',
+      raw: block,
+    };
+    if (p.after) p.after(txn, g);
+    return [txn];
+  }
+  return [];
 }
 
 function parseOne(block, fallbackDate = null) {

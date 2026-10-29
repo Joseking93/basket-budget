@@ -228,6 +228,13 @@ const BUILT_IN = [
   // Cash out at an agent
   { type: /^Withdrawal$/i, category: 'Cash Withdrawal' },
 
+  // Money landing in the bank account, read from the bank's own text message.
+  // Deliberately NOT income by default: a deposit might be pay arriving, or it
+  // might be his own money moving in, and the text does not say which. Filed as
+  // a transfer so it can never inflate earnings on a guess - one tap on the row
+  // makes it Salary or Income for good if that is what it is.
+  { type: /^Bank Deposit$/i, category: 'Bank Transfers' },
+
   // Cash IN at an agent. Not income: it is money you already had, in your hand,
   // moving into the wallet — and it is very often the cash you withdrew earlier
   // going back in. Counting it as money received would book the same money twice.
