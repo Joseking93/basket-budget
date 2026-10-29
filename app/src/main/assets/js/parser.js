@@ -134,12 +134,15 @@ const PATTERNS = [
     ),
   },
   {
-    // "You have transferred Ksh500.00 from your KCB M-PESA account on ..."
+    // "You have transfered Ksh500.00 from your KCB M-PESA account on ..." -
+    // with one r, which is how Safaricom spells it. 140 of these sat in the
+    // not-recognised panel through three releases, because the pattern was
+    // written from the spelling a person would use.
     // FROM the savings or loan account means money arriving in the wallet.
     type: 'Savings',
     direction: 'In',
     re: new RegExp(
-      `${CONF}You have transferred ${amt('amt')} (?<dir>to|from) your (?<who>[A-Za-z0-9&\\-. ]+?) account[.\\s]*${AT}`,
+      `${CONF}You have transferr?ed ${amt('amt')} (?<dir>to|from) your (?<who>[A-Za-z0-9&\\-. ]+?) account[.\\s]*${AT}`,
       'i'
     ),
     after: (t, g) => {
@@ -204,7 +207,7 @@ const PATTERNS = [
     type: 'Savings',
     direction: 'Out',
     re: new RegExp(
-      `${CONF}${amt('amt')} transferred (?<dir>to|from) (?<who>[A-Za-z0-9&\\-. ]*?)\\s*account[.\\s]*(?:${AT})?`,
+      `${CONF}${amt('amt')} transferr?ed (?<dir>to|from) (?<who>[A-Za-z0-9&\\-. ]*?)\\s*account[.\\s]*(?:${AT})?`,
       'i'
     ),
     after: (t, g) => {
