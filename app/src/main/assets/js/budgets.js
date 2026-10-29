@@ -28,7 +28,7 @@ export const DEFAULT_BUDGETS = [
   { id: 'fibre', label: 'Home fibre & online', amount: 0, categories: ['Internet', 'Subscriptions', 'Airtime & Data'] },
   { id: 'power', label: 'Electricity', amount: 0, categories: ['Electricity'] },
   { id: 'help', label: 'Househelp salary', amount: 0, categories: ['Household Staff'] },
-  { id: 'fun', label: 'Entertainment', amount: 0, categories: ['Entertainment', 'Dining & Takeout'] },
+  { id: 'fun', label: 'Entertainment', amount: 0, categories: ['Entertainment'] },
   { id: 'food', label: 'Groceries', amount: 0, categories: ['Groceries'] },
   { id: 'car', label: 'Fuel, transport & car', amount: 0, categories: ['Transport & Fuel', 'Car & Mechanic'] },
   { id: 'shop', label: 'Shopping & services', amount: 0, categories: ['Shopping', 'Personal Care', 'Health & Pharmacy'] },

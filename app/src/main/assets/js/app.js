@@ -22,6 +22,7 @@ import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
 import * as cash from './cash.js';
+import { cycleStartOf } from './salary.js';
 import { suggestFor } from './suggest.js';
 import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
 
@@ -135,7 +136,11 @@ function decorate(txns) {
 
 /** What should be in your pocket, from the transactions currently being read. */
 function pocketNow() {
-  return cash.allocate(visible(), store.cashRuns());
+  const all = visible();
+  // The cycle today falls in. Cash older than that was spent in a month that has
+  // already closed, whatever it was spent on.
+  const start = cycleStartOf(cycleMonthOf(isoDay(new Date())));
+  return cash.allocate(all, store.cashRuns(), start);
 }
 
 // Which name rule actually won, for the explanation.
@@ -3111,7 +3116,7 @@ function renderBalances() {
          </span>
          <span class="bal-text">
            <span class="bal-name">Cash in pocket</span>
-           <span class="bal-when">${pocket.since ? `drawn out since ${shortDate(pocket.since)}` : 'nothing drawn out'}</span>
+           <span class="bal-when">${pocket.since ? `drawn out since ${shortDate(pocket.since)}` : 'nothing drawn out this cycle'}</span>
          </span>
          <span class="bal-amt">${viz.fmt(pocket.pocket)}</span>
          <span class="bc-go">\u203a</span>
@@ -3296,7 +3301,18 @@ function renderCash() {
   $('#cash-pocket').textContent = viz.fmt(pocket.pocket);
   $('#cash-since').textContent = pocket.since
     ? `from what you have drawn out since ${shortDate(pocket.since)}`
-    : 'nothing drawn out that is still unaccounted for';
+    : 'nothing drawn out this cycle that is still unaccounted for';
+
+  // Cash from cycles that have closed. It is already counted as spending in the
+  // month it was drawn; this only says how much of your spending has no
+  // description against it.
+  const lap = $('#cash-lapsed');
+  lap.hidden = !pocket.lapsed;
+  if (pocket.lapsed) {
+    lap.textContent =
+      `${viz.fmt(pocket.lapsed)} was drawn out in earlier cycles and never itemised. ` +
+      'It counts as spending in the month it was drawn — this is just how much of it has no description.';
+  }
 
   // Cash spent that no withdrawal covers. Usually change or a gift, occasionally
   // a withdrawal the app has not read - either way, saying so beats a figure

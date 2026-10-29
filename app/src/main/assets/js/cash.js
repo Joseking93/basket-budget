@@ -40,13 +40,22 @@ const day = (iso) => String(iso || '').slice(0, 10);
 /**
  * Work out where the cash went.
  *
+ * Cash does not keep. Money drawn out in a cycle that has since closed was
+ * spent - it has to have been, the month is over - so only what was drawn in the
+ * CURRENT cycle can still be in a pocket. Without that line the figure only ever
+ * grows: five months of unitemised withdrawals read as twenty-four thousand
+ * sitting in a wallet that is empty, which is worse than not showing it at all.
+ * Older withdrawals still take claims, so you can itemise last month whenever
+ * you like; they just stop being counted as money you are holding.
+ *
  * @param {object[]} txns  every transaction being read
  * @param {object[]} runs  itemisations: {id, date, category, amount, items[]}
+ * @param {string}   since YYYY-MM-DD the current cycle began; older cash is gone
  * @returns {{splits: Map<string, {category: string, amount: number}[]>,
  *            pocket: number, since: string|null, unmatched: number,
  *            claimed: Map<string, {txnId: string, amount: number}[]>}}
  */
-export function allocate(txns, runs = []) {
+export function allocate(txns, runs = [], since = null) {
   const pool = txns
     .filter(isWithdrawal)
     .map((t) => ({ id: t.id, date: day(t.date), left: t.amount, parts: new Map() }))
@@ -102,10 +111,15 @@ export function allocate(txns, runs = []) {
     splits.set(w.id, parts.sort((a, b) => b.amount - a.amount));
   }
 
-  const pocket = pool.reduce((a, w) => a + w.left, 0);
-  const oldest = pool.find((w) => w.left > 0);
+  const held = pool.filter((w) => w.left > 0 && (!since || w.date >= since));
+  const pocket = held.reduce((a, w) => a + w.left, 0);
+  // Cash drawn before this cycle and never accounted for. Not in the pocket, but
+  // worth being able to see, because it is the size of the hole in the record.
+  const lapsed = pool
+    .filter((w) => w.left > 0 && since && w.date < since)
+    .reduce((a, w) => a + w.left, 0);
 
-  return { splits, pocket, since: oldest ? oldest.date : null, unmatched, claimed };
+  return { splits, pocket, lapsed, since: held.length ? held[0].date : null, unmatched, claimed };
 }
 
 /**

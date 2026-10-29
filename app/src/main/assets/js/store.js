@@ -40,6 +40,7 @@ const empty = () => ({
   receipts: [],
   receiptLinks: {},
   rawDropped: 0, // the one-off that freed the stored SMS text
+  diningFolded: 0, // the one-off that merged Dining & Takeout into Entertainment
   // Itemised cash: {id, date, category, amount, items:[{name, amount}], note}.
   // NOT transactions. The money already counted when it was withdrawn, so these
   // only say what it went on - see js/cash.js for why that distinction matters.
@@ -61,6 +62,7 @@ export function load() {
   }
   migrate();
   dropRawFromSms();
+  foldDiningIntoEntertainment();
   return state;
 }
 
@@ -580,6 +582,44 @@ function dropRawFromSms() {
   state.rawDropped = 1;
   save();
   if (n) console.info(`Freed the stored message text from ${n} transactions.`);
+}
+
+/**
+ * "Dining & Takeout" and "Entertainment" were one thing pretending to be two.
+ *
+ * Removing a category from the registry is not enough: every rule, override and
+ * split still pointing at the old name would quietly stop matching anything, and
+ * the money under it would read as uncategorised again. So the name is rewritten
+ * wherever it was stored, once.
+ */
+function foldDiningIntoEntertainment() {
+  if (state.diningFolded) return;
+  const OLD = 'Dining & Takeout';
+  const NEW = 'Entertainment';
+  let n = 0;
+
+  for (const [id, c] of Object.entries(state.overrides || {})) {
+    if (c === OLD) {
+      state.overrides[id] = NEW;
+      n++;
+    }
+  }
+  for (const r of state.userRules || []) if (r.category === OLD) ((r.category = NEW), n++);
+  for (const r of state.nameRules || []) if (r.category === OLD) ((r.category = NEW), n++);
+  for (const parts of Object.values(state.splits || {})) {
+    for (const p of parts) if (p.category === OLD) ((p.category = NEW), n++);
+  }
+  state.customCategories = (state.customCategories || []).filter((c) => c.name !== OLD);
+  for (const b of state.budgets || []) {
+    if (!Array.isArray(b.categories)) continue;
+    if (!b.categories.includes(OLD)) continue;
+    b.categories = [...new Set(b.categories.map((c) => (c === OLD ? NEW : c)))];
+    n++;
+  }
+
+  state.diningFolded = 1;
+  save();
+  if (n) console.info(`Moved ${n} things from “${OLD}” to “${NEW}”.`);
 }
 
 export function cashRuns() {

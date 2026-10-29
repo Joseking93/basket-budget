@@ -25,7 +25,6 @@ export const CATEGORIES = {
   'Rent & Housing': { class: CLASSES.SPENDING },
   Groceries: { class: CLASSES.SPENDING },
   Family: { class: CLASSES.SPENDING },
-  'Dining & Takeout': { class: CLASSES.SPENDING },
   'Transport & Fuel': { class: CLASSES.SPENDING },
   'Car & Mechanic': { class: CLASSES.SPENDING },
   // Water, gas, DSTV/GOTV — the shared "utilities" bucket. Electricity is split out
@@ -202,7 +201,20 @@ const BUILT_IN = [
   // Rubis South C" — so the fuel rule below (/RUBIS/) would wrongly book a coffee as
   // fuel. Name the known café brands first; kept to real chains so nothing else is
   // swept in.
-  { match: /ARTCAFF?E|JAVA\s*HOUSE|DORMANS|NAIROBI\s*JAVA/i, category: 'Dining & Takeout' },
+  { match: /ARTCAFF?E|JAVA\s*HOUSE|DORMANS|NAIROBI\s*JAVA/i, category: 'Entertainment' },
+
+  // Places, not people. A merchant's name usually says what it is, and a till
+  // in a mall or a supermarket is the single most common thing left sitting in
+  // the uncategorised list. These are deliberately about the VENUE - a name
+  // with GARDEN CITY or SARIT in it is a mall, and whatever was bought there,
+  // Shopping is a better answer than nothing at all.
+  { match: /GARDEN CITY|SARIT|VILLAGE MARKET|TWO RIVERS|THE HUB|GALLERIA|YAYA|JUNCTION MALL|WESTGATE|GREENSPAN|THIKA ROAD MALL|\bTRM\b|PRESTIGE PLAZA|CAPITAL CENTRE|LIKONI MALL|NEXUS MALL/i, category: 'Shopping' },
+  { match: /NAIVAS|QUICKMART|CARREFOUR|CHANDARANA|CLEANSHELF|MAGUNAS|EASTMATT|SOKO|GREENMART|KASSMATT|MATHAIS|ZUCCHINI|SUPERMARKET|GROCER/i, category: 'Groceries' },
+  { match: /PHARMAC|CHEMIST|GOODLIFE|MEDPLUS|HOSPITAL|CLINIC|DENTAL|OPTICA|LABORATOR/i, category: 'Health & Pharmacy' },
+  { match: /\bSHELL\b|TOTAL\s*ENERG|TOTALENERGIES|RUBIS|OILIBYA|\bOLA\b ENERGY|PETROL|SERVICE STATION|\bGAPCO\b|\bHASS\b|ASTROL/i, category: 'Transport & Fuel' },
+  { match: /\bMAF\b|\bH ?& ?M\b|LC WAIKIKI|MR PRICE|WOOLWORTH|\bBATA\b|DECATHLON|TRUWORTH|\bJUMIA\b|\bKILIMALL\b|BOOKSHOP|STATIONER/i, category: 'Shopping' },
+  { match: /SALON|BARBER|SPA\b|BEAUTY|COSMETIC|NAIL/i, category: 'Personal Care' },
+  { match: /CINEMA|IMAX|CENTURY|ANGA|BOWLING|GOLF|\bGYM\b|FITNESS|CLUB\b|LOUNGE|WINES|SPIRITS|LIQUOR/i, category: 'Entertainment' },
 
   // Getting around: fuel, tolls, parking, taxis
   { match: /MOJA EXPRESSWAY|SHELL|TOTAL|ASTROL|PETROL|OILIBYA|RUBIS|UBER|BOLT|LITTLE CAB|MATATU|SGR|KENYA RAILWAY|SERVICE STATION|PARKNGO|PARKING/i, category: 'Transport & Fuel' },
@@ -215,7 +227,7 @@ const BUILT_IN = [
   { match: /NAIVAS|QUICK ?MART|CARREFOUR|CHANDARANA|TUSKYS|MAJID|KUKU|BUTCHER|GREENGROCER|SOKO|MILLERS|MEAT COMM|\bMEAT\b|GROCER|SUPERMAR/i, category: 'Groceries' },
 
   // Dining
-  { match: /DOMINO|PIZZA|JAVA|ARTCAFF?E|KFC|BURGER|CHICKEN INN|PRONTO CATERING|CAF[EÉ]|RESTAURANT|KIBANDA|HOTEL|GALITOS|SUBWAY|JUICY LIME|GRILL|FLAVOR TOWN|EATERY|FOOD/i, category: 'Dining & Takeout' },
+  { match: /DOMINO|PIZZA|JAVA|ARTCAFF?E|KFC|BURGER|CHICKEN INN|PRONTO CATERING|CAF[EÉ]|RESTAURANT|KIBANDA|HOTEL|GALITOS|SUBWAY|JUICY LIME|GRILL|FLAVOR TOWN|EATERY|FOOD/i, category: 'Entertainment' },
 
   // Health
   { match: /HOSPITAL|PHARMA|CLINIC|MEDIC|CHEMIST|DOCTOR|DENTAL|OPTIC|HEART FUND|AFYA|HEALTH/i, category: 'Health & Pharmacy' },
