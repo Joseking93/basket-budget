@@ -41,6 +41,9 @@ const state = {
   // today, and the last seven.
   drillFrom: null,
   drillTo: null,
+  // 'spending' narrows to money actually consumed, leaving out transfers and
+  // loan repayments - so a list opened from the spending figure adds up to it.
+  drillClass: null,
   balAcct: null,
   sort: { key: 'date', dir: 'desc' },
   // How many rows of the transaction list are on screen. Everything is still
@@ -255,13 +258,23 @@ function render() {
   // narrowing to one person never silently rewrites the totals above.
   const rows = viz.sortTxns(applyFilters(txns), state.sort);
   const filtered = rows.length !== txns.length;
-  $('#filter-count').textContent = filtered ? `${rows.length} of ${txns.length}` : `${txns.length} transactions`;
+  // The total of what is actually listed. Without it a filtered list is a
+  // claim you cannot check, and checking it was the whole point of opening it.
+  const outOf = rows.filter((t) => t.direction === 'Out').reduce((a, t) => a + t.amount, 0);
+  const inOf = rows.filter((t) => t.direction === 'In').reduce((a, t) => a + t.amount, 0);
+  const sums = [outOf ? `${viz.fmt(outOf)} out` : '', inOf ? `${viz.fmt(inOf)} in` : '']
+    .filter(Boolean)
+    .join(' \u00b7 ');
+  $('#filter-count').textContent =
+    (filtered ? `${rows.length} of ${txns.length}` : `${txns.length} transactions`) +
+    (sums ? ` \u00b7 ${sums}` : '');
   setBadge('#txn-badge', filtered ? `${rows.length} of ${txns.length}` : `${txns.length}`);
 
   // A drill-down must be obviously undoable, or it looks like the app lost your data.
   const chip = $('#drill-chip');
   const bits = [];
   if (state.drillMonth) bits.push(monthLabel(state.drillMonth));
+  if (state.drillClass === 'spending') bits.push('spending only');
   if (state.drillFrom || state.drillTo) {
     bits.push(
       state.drillFrom === state.drillTo
@@ -280,6 +293,7 @@ function render() {
       state.drillMonth = null;
       state.drillFrom = null;
       state.drillTo = null;
+      state.drillClass = null;
       state.catFilter = 'all';
       state.search = '';
       state.dirFilter = 'all';
@@ -2196,6 +2210,10 @@ function applyFilters(txns) {
   return txns.filter((t) => {
     if (state.drillFrom && !(t.date && t.date.slice(0, 10) >= state.drillFrom)) return false;
     if (state.drillTo && !(t.date && t.date.slice(0, 10) <= state.drillTo)) return false;
+    if (state.drillClass === 'spending') {
+      const k = classOf(t.category);
+      if (k !== CLASSES.SPENDING && k !== CLASSES.FEE) return false;
+    }
     // Category + month together, so a split payment assigned to another budget month
     // shows up when you drill THAT month. A slice matches if its category fits the
     // filter AND its month is the drilled one — its own if the slice was assigned one,
@@ -2880,10 +2898,11 @@ function cycleBounds(all, cycleStart, todayIso) {
  * Biggest first, because the question behind "how did I spend that much" is
  * almost always answered by the top two or three rows.
  */
-function openBehind({ month = null, from = null, to = null, dir = 'all', search = '', label }) {
+function openBehind({ month = null, from = null, to = null, dir = 'all', search = '', spending = false, label }) {
   state.drillMonth = month;
   state.drillFrom = from;
   state.drillTo = to;
+  state.drillClass = spending ? 'spending' : null;
   state.dirFilter = dir;
   state.search = search;
   state.catFilter = 'all';
@@ -2941,8 +2960,9 @@ function renderSpark(all, todayIso) {
   $('#spent-today-note').textContent = week ? `${viz.fmt(week)} over the week` : 'nothing yet';
 
   const cards = document.querySelectorAll('.duo .duo-card');
-  wireBehind(cards[0], () => ({ from: days[0], to: days[6], dir: 'Out', label: 'The last seven days' }));
-  wireBehind(cards[1], () => ({ from: days[6], to: days[6], dir: 'Out', label: 'Today' }));
+  // These two count spending as well, so they narrow the same way.
+  wireBehind(cards[0], () => ({ from: days[0], to: days[6], dir: 'Out', spending: true, label: 'The last seven days' }));
+  wireBehind(cards[1], () => ({ from: days[6], to: days[6], dir: 'Out', spending: true, label: 'Today' }));
   const strip = $('#spark-days');
   if (strip) strip.innerHTML = letters.map((l) => `<span>${escapeHtml(l)}</span>`).join('');
 }
@@ -3106,6 +3126,7 @@ function renderHome(all) {
   wireBehind(document.querySelector('.gauge-card'), () => ({
     month,
     dir: 'Out',
+    spending: true,
     label: `Spending in ${labelNow}`,
   }));
   wireBehind($('#chip-in') && $('#chip-in').closest('.chip'), () => ({
