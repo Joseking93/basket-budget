@@ -66,6 +66,7 @@ const WHY = {
   name: 'a name rule',
   rule: 'a built-in rule',
   'small-send': `a small send (${'≤'}200 to a person is treated as groceries)`,
+  'small-till': `a small payment (${'≤'}200 at a till is treated as groceries)`,
   fallback: 'nothing — it needs categorising',
 };
 
@@ -4123,6 +4124,7 @@ function renderBasket() {
   if (!card) return;
   const receipts = store.receipts();
   const links = store.receiptLinks();
+  const paidCash = store.receiptCash();
   const txns = store.allTransactions();
   const byId = new Map(txns.map((t) => [t.id, t]));
 
@@ -4156,9 +4158,12 @@ function renderBasket() {
       .map((r) => {
         const total = r.slipTotal != null ? r.slipTotal : basket.receiptTotal(r);
         const txn = byId.get(links[r.id]);
+        const cash = paidCash[r.id];
         const where = txn
           ? `<span class="good">matched ${escapeHtml(String(txn.counterparty || '—'))}</span>`
-          : '<span class="dim">no payment matched</span>';
+          : cash
+            ? '<span class="good">paid in cash</span>'
+            : '<span class="dim">no payment matched</span>';
         return `<details class="sub">
           <summary>
             <strong>${shortDate(r.date + 'T12:00:00Z')}</strong>
@@ -4175,14 +4180,45 @@ function renderBasket() {
               )
               .join('')}
           </tbody></table>
-          <button type="button" class="link" data-drop-receipt="${escapeHtml(r.id)}">Remove this receipt</button>
+          <div class="row">
+            ${
+              txn
+                ? ''
+                : cash
+                  ? `<button type="button" class="link" data-receipt-uncash="${escapeHtml(r.id)}">Not cash after all</button>`
+                  : `<button type="button" class="link" data-receipt-cash="${escapeHtml(r.id)}">I paid this in cash</button>`
+            }
+            <button type="button" class="link" data-drop-receipt="${escapeHtml(r.id)}">Remove this receipt</button>
+          </div>
         </details>`;
       })
       .join('')}`;
 
+  box.querySelectorAll('[data-receipt-cash]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const run = store.payReceiptInCash(b.dataset.receiptCash);
+      if (!run) return;
+      render();
+      renderBasket();
+      // Said plainly, because the total deliberately does NOT move: the money
+      // was counted when it was drawn out, and this only says what it bought.
+      toast(`${viz.fmt(run.amount)} booked against your cash. Your spending total is unchanged.`);
+    }),
+  );
+  box.querySelectorAll('[data-receipt-uncash]').forEach((b) =>
+    b.addEventListener('click', () => {
+      store.unpayReceiptInCash(b.dataset.receiptUncash);
+      render();
+      renderBasket();
+    }),
+  );
   box.querySelectorAll('[data-drop-receipt]').forEach((b) =>
     b.addEventListener('click', () => {
+      // The cash run it created goes with it, or the money would be claimed by
+      // a receipt that no longer exists.
+      store.unpayReceiptInCash(b.dataset.dropReceipt);
       store.removeReceipt(b.dataset.dropReceipt);
+      render();
       renderBasket();
     }),
   );

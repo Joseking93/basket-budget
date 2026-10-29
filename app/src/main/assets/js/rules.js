@@ -352,6 +352,15 @@ export function categorise(txn, userRules = [], nameRules = []) {
     }
     return { category: 'Uncategorised', source: 'fallback' };
   }
+
+  // A small payment at a till is food for the same reason a small send is: at
+  // sixty or a hundred shillings it is kale, a mandazi, a bunch of bananas. The
+  // same limit guards it, and it is YOUR limit - set it to zero in Settings and
+  // this stops guessing entirely. Above the limit nothing is assumed: a plausible
+  // guess at scale is not a guess any more, it is misinformation.
+  if (txn.direction === 'Out' && txn.amount > 0 && txn.amount <= SMALL_SEND_LIMIT) {
+    return { category: 'Groceries', source: 'small-till' };
+  }
   return { category: 'Uncategorised', source: 'fallback' };
 }
 

@@ -39,6 +39,9 @@ const empty = () => ({
   // receiptId -> txnId for the statement line each one paid for.
   receipts: [],
   receiptLinks: {},
+  // receiptId -> the id of the cash run it created. A receipt you paid in cash
+  // has no payment to match, so it claims against a withdrawal instead.
+  receiptCash: {},
   rawDropped: 0, // the one-off that freed the stored SMS text
   diningFolded: 0, // the one-off that merged Dining & Takeout into Entertainment
   // category -> colour slot on the ring. Remembered so a category keeps its
@@ -677,9 +680,13 @@ export function cashRuns() {
 
 export function addCashRun(run) {
   const items = (run.items || []).filter((i) => Number(i.amount) > 0);
-  const amount = items.length
-    ? items.reduce((a, i) => a + Number(i.amount), 0)
-    : Number(run.amount) || 0;
+  // An explicit amount wins over the items. A till slip's lines often do not
+  // sum to its total - an unread row, a discount, a VAT line - and the total is
+  // what you actually handed over, so that is what leaves the pocket. The items
+  // stay as description. The pad passes no amount and is unaffected.
+  const amount = Number(run.amount) > 0
+    ? Number(run.amount)
+    : items.reduce((a, i) => a + Number(i.amount), 0);
   if (amount <= 0) return null;
   const row = {
     id: run.id || `cash-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
@@ -935,6 +942,8 @@ export function importJSON(text) {
 
   // --- itemised cash: additive, keyed by id. Typed on whichever device was in
   // your hand at the market, so the union is the only merge that keeps both.
+  state.receiptCash = { ...(state.receiptCash || {}), ...(incoming.receiptCash || {}) };
+
   if (Array.isArray(incoming.cashRuns)) {
     const mine = new Map(cashRuns().map((r) => [r.id, r]));
     for (const r of incoming.cashRuns) mine.set(r.id, r);
@@ -1045,6 +1054,52 @@ export function importReceipts(incoming) {
   state.receipts = [...byId.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
   save();
   return { added, replaced, total: state.receipts.length };
+}
+
+/**
+ * Book a receipt as paid in cash.
+ *
+ * The receipt's items become the run's items, so the cash is described to the
+ * same depth as the slip was - which is the whole reason for scanning it.
+ */
+export function payReceiptInCash(receiptId, category = 'Groceries') {
+  const r = receipts().find((x) => x.id === receiptId);
+  if (!r) return null;
+  if (!state.receiptCash) state.receiptCash = {};
+  if (state.receiptCash[receiptId]) return null; // already booked; no double count
+
+  const items = (r.items || [])
+    .map((i) => ({ name: String(i.name || '').trim(), amount: Number(i.price) * Number(i.qty || 1) }))
+    .filter((i) => i.name && i.amount > 0);
+
+  const run = addCashRun({
+    date: r.date,
+    category,
+    items,
+    // A slip total can differ from the sum of its lines (a rounding, a discount
+    // the scan did not read). The slip is what you handed over, so it wins.
+    amount: r.slipTotal != null ? r.slipTotal : undefined,
+    note: `receipt ${receiptId}`,
+  });
+  if (!run) return null;
+  state.receiptCash[receiptId] = run.id;
+  save();
+  return run;
+}
+
+/** Undo that, taking the cash run with it. */
+export function unpayReceiptInCash(receiptId) {
+  const id = state.receiptCash && state.receiptCash[receiptId];
+  if (!id) return false;
+  removeCashRun(id);
+  delete state.receiptCash[receiptId];
+  save();
+  return true;
+}
+
+export function receiptCash() {
+  if (!state.receiptCash) state.receiptCash = {};
+  return state.receiptCash;
 }
 
 export function setReceiptLinks(links) {

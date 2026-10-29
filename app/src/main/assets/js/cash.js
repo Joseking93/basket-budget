@@ -12,11 +12,17 @@
 // the breakdown does, which is the whole point. It also means the figure on the
 // home screen cannot drift downward just because a week went by without typing.
 //
-// Claims are matched to withdrawals oldest first. Whatever no claim has reached
-// is what should still be in your pocket, so one piece of arithmetic answers
-// both "what did the cash go on" and "how much should I be holding" — and the
-// second is checkable against your actual wallet, which is what keeps the first
-// honest.
+// A claim takes from the MOST RECENT cash drawn on or before its date. Oldest
+// first is the obvious rule and it is wrong here: paired with "cash does not
+// keep", it let an October receipt claim money drawn in June — money already
+// written off as spent in June — which both filed the shopping under the wrong
+// month and left this month's pocket reading as though nothing had come out of
+// it. The newest cash is the cash in your hand.
+//
+// Whatever no claim has reached is what should still be in your pocket, so one
+// piece of arithmetic answers both "what did the cash go on" and "how much
+// should I be holding" — and the second is checkable against your actual
+// wallet, which is what keeps the first honest.
 
 import { CATEGORIES } from './rules.js';
 
@@ -59,7 +65,9 @@ export function allocate(txns, runs = [], since = null) {
   const pool = txns
     .filter(isWithdrawal)
     .map((t) => ({ id: t.id, date: day(t.date), left: t.amount, parts: new Map() }))
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    // Newest first, so a claim meets the most recent cash it could have come
+    // out of before it meets any older.
+    .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
 
   // A deposit is a claim like any other: the cash stopped being in your pocket.
   // It is filed as a transfer rather than spending, so splitting a withdrawal by
@@ -111,7 +119,11 @@ export function allocate(txns, runs = [], since = null) {
     splits.set(w.id, parts.sort((a, b) => b.amount - a.amount));
   }
 
-  const held = pool.filter((w) => w.left > 0 && (!since || w.date >= since));
+  // The pool is newest first; "drawn out since the 20th" wants the oldest one
+  // still holding money, so this one list goes back into date order.
+  const held = pool
+    .filter((w) => w.left > 0 && (!since || w.date >= since))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
   const pocket = held.reduce((a, w) => a + w.left, 0);
   // Cash drawn before this cycle and never accounted for. Not in the pocket, but
   // worth being able to see, because it is the size of the hole in the record.
