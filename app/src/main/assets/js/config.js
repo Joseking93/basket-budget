@@ -22,7 +22,19 @@ export let PEOPLE = [];
 // the long tail of small sends, not the money that actually matters.
 export let SMALL_SEND_LIMIT = 200;
 
-export const DEFAULT_SETTINGS = { name: '', phones: [], accounts: [], people: [], smallSendLimit: 200 };
+/**
+ * How far back the app reads, as a number of months before today, or 0 for
+ * everything. Everything on file stays on file - this is how much of it is
+ * loaded into a screen.
+ *
+ * The default is five months, which from the autumn of 2026 reaches back to
+ * June. A phone re-reading four years of messages every time a figure changes
+ * is the whole of the lag.
+ */
+export const DEFAULT_WINDOW_MONTHS = 5;
+
+export const DEFAULT_SETTINGS = {
+  windowMonths: DEFAULT_WINDOW_MONTHS, name: '', phones: [], accounts: [], people: [], smallSendLimit: 200 };
 
 export function configure(s = {}) {
   ME.phones = (s.phones || []).map(norm).filter(Boolean);

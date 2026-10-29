@@ -43,6 +43,9 @@
   --hero-ink: #ffffff;
   --hero-dim: #a8a8ad;
   --hero-track: rgba(255, 255, 255, 0.14);
+  /* The unfilled part of a gauge or a progress bar, on the PAGE rather than on
+     the hero card - white at 26% is invisible on a white card. */
+  --track: rgba(255, 255, 255, 0.14);
   --hero-fill: #ff9f0a;
 
   --tint: #ff9f0a;
@@ -51,9 +54,16 @@
   --tint-line: rgba(255, 159, 10, 0.45);
 
   --good: #30d158;
+  --good-soft: rgba(48, 209, 88, 0.15);
   --warn: #ffd60a;
   --bad: #ff6482;
   --bad-soft: rgba(255, 100, 130, 0.14);
+
+  /* Three labels, not a scale. Each carries its own ink so the contrast holds
+     in either theme rather than relying on the page's. */
+  --chip-1: rgba(255, 159, 10, 0.16);  --chip-1-ink: #ffb340;
+  --chip-2: rgba(48, 209, 88, 0.15);   --chip-2-ink: #46d969;
+  --chip-3: rgba(255, 255, 255, 0.08); --chip-3-ink: #c9c9ce;
 
   --grid: rgba(255, 255, 255, 0.10);
   --axis: rgba(255, 255, 255, 0.22);
@@ -106,6 +116,7 @@
   --hero-ink: #ffffff;
   --hero-dim: rgba(255, 255, 255, 0.85);
   --hero-track: rgba(255, 255, 255, 0.26);
+  --track: #e3e3e8;
   --hero-fill: #ffffff;
 
   --tint: #4b3fbf;
@@ -114,9 +125,14 @@
   --tint-line: rgba(75, 63, 191, 0.40);
 
   --good: #1f7a4d;
+  --good-soft: #e3f3ea;
   --warn: #b45309;
   --bad: #c0352b;
   --bad-soft: rgba(192, 53, 43, 0.10);
+
+  --chip-1: #f3eefc;  --chip-1-ink: #5b43a8;
+  --chip-2: #e3f3ea;  --chip-2-ink: #1f7a4d;
+  --chip-3: #eef0f6;  --chip-3-ink: #44464f;
 
   --grid: #ececf1;
   --axis: #c7c7cc;

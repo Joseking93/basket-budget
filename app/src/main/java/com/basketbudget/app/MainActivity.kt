@@ -91,6 +91,9 @@ class MainActivity : ComponentActivity() {
     private var pendingPhotoPath: String? = null
     private var pendingUpdate: Updater.Release? = null
 
+    /** Work that can only happen on the shopping page, waiting for it to load. */
+    private var afterBasket: (() -> Unit)? = null
+
     private val takePicture =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
             val file = pendingPhotoPath?.let { File(it) }
@@ -230,6 +233,10 @@ class MainActivity : ComponentActivity() {
                     scanOnLoad = false
                     chooseSource()
                 }
+                if (url.endsWith(BASKET_PAGE)) {
+                    afterBasket?.invoke()
+                    afterBasket = null
+                }
                 // Once the permission is given, keep the tracker current by
                 // itself: whatever M-PESA has sent since the last look is read
                 // on the way in, and says nothing when there is nothing new.
@@ -239,8 +246,22 @@ class MainActivity : ComponentActivity() {
         web.addJavascriptInterface(Bridge(), "Android")
         // The widget goes straight to the shopping page and opens the camera;
         // everything else starts at the tracker.
-        scanOnLoad = intent?.getBooleanExtra(ScanWidget.EXTRA_SCAN, false) == true
-        web.loadUrl("https://$ASSET_HOST/assets/" + if (scanOnLoad) BASKET_PAGE else HOME_PAGE)
+        //
+        // Except when we are being rebuilt. Android restarts a killed task from
+        // its BASE intent - the launcher's - so the widget's own intent is gone
+        // by then, and a scan taken behind the camera would land back on the
+        // tracker. If a photo is still in flight, or the page we were on was
+        // saved, that is where to come back to.
+        val wantsScan = intent?.getBooleanExtra(ScanWidget.EXTRA_SCAN, false) == true
+        val returning = pendingPhotoPath != null
+        // Not while a photo is already on its way back: that would open the
+        // camera a second time for a receipt we are holding.
+        scanOnLoad = wantsScan && !returning
+        val start = when {
+            returning || wantsScan -> BASKET_PAGE
+            else -> savedInstanceState?.getString(KEY_PAGE) ?: HOME_PAGE
+        }
+        web.loadUrl("https://$ASSET_HOST/assets/" + start)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -273,6 +294,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         pendingPhotoPath?.let { outState.putString(KEY_PENDING_PHOTO, it) }
+        web.url?.substringAfterLast('/')?.let { outState.putString(KEY_PAGE, it) }
     }
 
     override fun onDestroy() {
@@ -547,7 +569,31 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun recognise(uri: Uri) {
+    /**
+     * Runs [block] on the shopping page, loading it first if we are not there.
+     *
+     * Everything a scan reports - the progress sheet, the lines it read, a
+     * failure - is a function that only basket.html defines. Calling one from
+     * the tracker is not an error anywhere; it simply does nothing, which is
+     * exactly what a scan looked like when the camera had taken the activity
+     * down with it.
+     */
+    private fun onBasketPage(block: () -> Unit) {
+        val here = web.url?.endsWith(BASKET_PAGE) == true
+        if (here && pageReady) {
+            block()
+            return
+        }
+        afterBasket = block
+        if (!here) {
+            pageReady = false
+            web.loadUrl("https://$ASSET_HOST/assets/" + BASKET_PAGE)
+        }
+    }
+
+    private fun recognise(uri: Uri) = onBasketPage { recogniseOnBasket(uri) }
+
+    private fun recogniseOnBasket(uri: Uri) {
         runJs("window.onReceiptScanning && window.onReceiptScanning();")
         sheetOpen = true
         try {
@@ -725,12 +771,13 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Says what went wrong in the sheet. Silence is what made this hard to find. */
-    private fun fail(message: String) {
+    private fun fail(message: String) = onBasketPage {
         deliver(ReceiptScan(emptyList(), null), emptyList(), message)
     }
 
     /** Nothing was photographed or picked, so leave the page as it was. */
     private fun scanCancelled() {
+        if (web.url?.endsWith(BASKET_PAGE) != true) return
         runJs("window.bbCloseSheet && window.bbCloseSheet();")
         sheetOpen = false
     }
@@ -746,6 +793,7 @@ class MainActivity : ComponentActivity() {
         const val BLANK_LINE = "\n\n"
         const val ELLIPSIS = "\u2026"
         const val KEY_PENDING_PHOTO = "pendingPhotoPath"
+        const val KEY_PAGE = "page"
         const val MAX_PDF_PAGES = 5
         const val PDF_TARGET_WIDTH = 1600
         const val PAGE_STRIDE = 1_000_000

@@ -39,6 +39,9 @@ const state = {
   drillMonth: null,
   balAcct: null,
   sort: { key: 'date', dir: 'desc' },
+  // How many rows of the transaction list are on screen. Everything is still
+  // there - this is what gets built into the page.
+  txnLimit: 150,
 };
 
 // Categories are derived on read, never baked into the stored transaction — so
@@ -51,7 +54,15 @@ const WHY = {
   fallback: 'nothing — it needs categorising',
 };
 
+// Categorising every transaction means running it past every rule, and render()
+// is called for things that change nothing about the data - a time range, a sort,
+// a filter. At ten thousand transactions that was most of the work on screen.
+let decorateCache = { rev: -1, out: null };
+
 function decorate(txns) {
+  if (decorateCache.rev === store.revision() && decorateCache.out && decorateCache.n === txns.length) {
+    return decorateCache.out;
+  }
   const { userRules, nameRules, overrides, refundLinks } = store.getState();
   const byId = new Map(txns.map((t) => [t.id, t]));
 
@@ -93,7 +104,8 @@ function decorate(txns) {
     r.why = `offsets ${s.counterparty} (${viz.fmt(s.amount)})`;
     s.offsetBy = (s.offsetBy || 0) + r.amount;
   }
-  return [...decorated.values()];
+  decorateCache = { rev: store.revision(), n: txns.length, out: [...decorated.values()] };
+  return decorateCache.out;
 }
 
 // Which name rule actually won, for the explanation.
@@ -111,8 +123,27 @@ function inRange(txns) {
   return txns.filter((t) => t.date && new Date(t.date).getTime() >= cutoff);
 }
 
+/**
+ * Everything the app is currently looking at.
+ *
+ * Not everything on file: see DEFAULT_WINDOW_MONTHS. The cut is made here, once,
+ * before anything is categorised or counted, so every panel, chart, badge and
+ * total below is working on the same, smaller set.
+ */
+function visible() {
+  const months = store.settings().windowMonths ?? 0;
+  const all = store.allTransactions();
+  if (!months) return all;
+  const from = new Date();
+  from.setMonth(from.getMonth() - months);
+  from.setDate(1);
+  from.setHours(0, 0, 0, 0);
+  const cutoff = from.toISOString();
+  return all.filter((t) => !t.date || t.date >= cutoff);
+}
+
 function render() {
-  const all = decorate(store.allTransactions());
+  const all = decorate(visible());
   const txns = inRange(all);
 
   const s = viz.summarise(txns);
@@ -200,7 +231,7 @@ function render() {
 
   viz.renderTable(
     $('#table-txns'),
-    rows,
+    rows.slice(0, state.txnLimit),
     (id, cat) => {
       // A pass-through or an internal transfer is true of this payment only — making
       // it a rule for the sender would misfile everything they send you afterwards.
@@ -224,10 +255,19 @@ function render() {
         state.sort.key === key
           ? { key, dir: state.sort.dir === 'asc' ? 'desc' : 'asc' }
           : { key, dir: 'desc' };
+      state.txnLimit = 150;
       render();
     },
     all.length,
-    (id) => openSplitEditor(all.find((t) => t.id === id))
+    (id) => openSplitEditor(all.find((t) => t.id === id)),
+    {
+      shown: Math.min(state.txnLimit, rows.length),
+      total: rows.length,
+      onMore: () => {
+        state.txnLimit += 150;
+        render();
+      },
+    }
   );
 }
 
@@ -351,7 +391,7 @@ function openPayAssign(month) {
   let all = [];
   let runs = [];
   const refresh = () => {
-    all = decorate(store.allTransactions());
+    all = decorate(visible());
     runs = salaryRuns(all);
   };
   const overlay = document.createElement('div');
@@ -454,7 +494,7 @@ function openBudgetAssign(line, month) {
 
   let relevant = [];
   const recompute = () => {
-    relevant = decorate(store.allTransactions())
+    relevant = decorate(visible())
       .filter((t) => t.direction === 'Out')
       .map((t) => ({ t, hits: partsOf(t).filter((c) => cats.has(c)) }))
       .filter((x) => x.hits.length);
@@ -1608,6 +1648,16 @@ function prettyDue(due) {
 
 function renderSettings() {
   const s = store.settings();
+  const win = $('#set-window');
+  if (win) {
+    win.value = String(s.windowMonths ?? 0);
+    const on = store.allTransactions().length;
+    const read = visible().length;
+    $('#window-note').textContent =
+      on === read
+        ? `Reading all ${on} transaction${on === 1 ? '' : 's'} on file.`
+        : `Reading ${read} of ${on} on file. The other ${on - read} are kept, just not loaded.`;
+  }
   $('#set-name').value = s.name || '';
   $('#set-phones').value = (s.phones || []).join(', ');
   $('#set-accounts').value = (s.accounts || []).join(', ');
@@ -2180,10 +2230,25 @@ function showView(view, push = true) {
   window.scrollTo(0, 0);
 }
 
-function wireViews() {
-  document.querySelectorAll('[data-go]').forEach((el) => {
+function wireViewLinks(root) {
+  root.querySelectorAll('[data-go]').forEach((el) => {
     el.addEventListener('click', () => showView(el.dataset.go));
   });
+}
+
+function wireWindow() {
+  const win = $('#set-window');
+  if (!win) return;
+  win.addEventListener('change', () => {
+    store.saveSettings({ windowMonths: parseInt(win.value, 10) });
+    render();
+    renderSettings();
+    toast(win.value === '0' ? 'Reading everything on file.' : `Reading the last ${win.value} months.`);
+  });
+}
+
+function wireViews() {
+  wireViewLinks(document);
   document.querySelectorAll('.back').forEach((b) => {
     b.addEventListener('click', () => history.back());
   });
@@ -2359,7 +2424,7 @@ function wire() {
   // A CSV of the selected month: totals, categories, then every transaction. Excel
   // opens it directly, which is where this data came from.
   $('#btn-export-month').addEventListener('click', () => {
-    const all = decorate(store.allTransactions());
+    const all = decorate(visible());
     const m = state.month;
     const { now } = compareMonths(all, m);
     // Same month rule as the header totals above (pay cycle, not calendar) — otherwise
@@ -2613,6 +2678,7 @@ async function init() {
   // suffix scheme, so one row survived dedupe as a phantom. Statements are the
   // source of truth; the app starts empty and you import.
   wireViews();
+  wireWindow();
   wire();
   wireSettings();
   wireSms();
@@ -2684,6 +2750,101 @@ function cycleBounds(all, cycleStart, todayIso) {
   return { from, to: shiftDay(later || monthOn(from, 1), -1) };
 }
 
+
+/** The last seven days as bars, today picked out. */
+function renderSpark(all, todayIso) {
+  const days = [];
+  const base = new Date(`${todayIso}T12:00:00`);
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(base);
+    d.setDate(d.getDate() - i);
+    days.push(isoDay(d));
+  }
+  const totals = days.map((day) =>
+    all
+      .filter((t) => t.direction === 'Out' && t.date && t.date.slice(0, 10) === day && classOf(t.category) !== CLASSES.TRANSFER)
+      .reduce((a, t) => a + t.amount, 0)
+  );
+  const peak = Math.max(...totals, 1);
+  const letters = days.map((d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'narrow' }));
+  $('#spark7').innerHTML = totals
+    .map((v, i) => `<i class="${i === 6 ? 'today' : ''}" style="height:${Math.max(2, (v / peak) * 100)}%" title="${escapeHtml(days[i])}: ${viz.fmt(v)}"></i>`)
+    .join('');
+  $('#spent-today').textContent = viz.fmt(totals[6]);
+  const week = totals.reduce((a, v) => a + v, 0);
+  $('#spent-today-note').textContent = week ? `${viz.fmt(week)} over the week` : 'nothing yet';
+  const strip = $('#spark-days');
+  if (strip) strip.innerHTML = letters.map((l) => `<span>${escapeHtml(l)}</span>`).join('');
+}
+
+/** Each budget line as a card: what is left, and how far through it you are. */
+function renderHomeBudgets(report, budgeted) {
+  const box = $('#home-budgets');
+  const sec = $('#home-budgets-sec');
+  const lines = (report || []).filter((r) => r.amount > 0);
+  sec.hidden = !lines.length;
+  if (!lines.length) {
+    box.innerHTML = '';
+    return;
+  }
+  // Worst first: a line you have blown through is the one worth seeing.
+  const rows = lines.slice().sort((a, b) => b.spent / b.amount - a.spent / a.amount).slice(0, 4);
+  box.innerHTML = rows
+    .map((r) => {
+      const left = r.amount - r.spent;
+      const pct = Math.min(100, (r.spent / r.amount) * 100);
+      const over = left < 0;
+      return `<button class="bcard" type="button" data-go="budget">
+        <span class="bc-icon ${over ? 'neg' : ''}" aria-hidden="true">${over ? '!' : '●'}</span>
+        <span class="bc-text">
+          <span class="bc-name">${escapeHtml(r.label)}</span>
+          <span class="bc-sub">${over ? `${viz.fmt(-left)} over` : `${viz.fmt(left)} left to spend`}</span>
+        </span>
+        <span class="bc-fig">
+          <span class="bc-amt">${viz.fmt(r.spent)}</span>
+          <span class="bc-of">of ${viz.fmt(r.amount)}</span>
+        </span>
+        <span class="bc-go">›</span>
+        <span class="bc-bar"><i class="${over ? 'over' : ''}" style="width:${pct}%"></i></span>
+      </button>`;
+    })
+    .join('');
+  wireViewLinks(box);
+}
+
+/** What is due next, from the payments that repeat every month. */
+function renderHomeUpcoming(all) {
+  const box = $('#home-upcoming');
+  const sec = $('#home-upcoming-sec');
+  const found = findRecurring(all).filter((r) => !r.stale && r.nextDue);
+  const soon = found
+    .slice()
+    .sort((a, b) => (a.nextDue < b.nextDue ? -1 : 1))
+    .slice(0, 4);
+  sec.hidden = !soon.length;
+  if (!soon.length) {
+    box.innerHTML = '';
+    return;
+  }
+  const today = isoDay(new Date());
+  box.innerHTML = soon
+    .map((r) => {
+      const inDays = Math.round((Date.parse(r.nextDue) - Date.parse(today)) / 86400000);
+      const when = inDays < 0 ? 'overdue' : inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`;
+      return `<button class="bcard" type="button" data-go="recurring">
+        <span class="bc-icon" aria-hidden="true">↻</span>
+        <span class="bc-text">
+          <span class="bc-name">${escapeHtml(r.name)}</span>
+          <span class="bc-sub">${escapeHtml(shortDate(r.nextDue.slice(0, 10)))} · ${when}</span>
+        </span>
+        <span class="bc-fig"><span class="bc-amt">${viz.fmt(r.typical)}</span></span>
+        <span class="bc-go">›</span>
+      </button>`;
+    })
+    .join('');
+  wireViewLinks(box);
+}
+
 function renderHome(all) {
   const now = new Date();
   const todayIso = isoDay(now);
@@ -2705,24 +2866,54 @@ function renderHome(all) {
 
   const days = Math.max(0, Math.round((Date.parse(to) - Date.parse(todayIso)) / 86400000));
   $('#hero-cycle').textContent = `${monthLabel(month)} · ${shortDate(from)} – ${shortDate(to)}`;
-  $('#hero-days').textContent = days === 0 ? 'last day' : `${days} day${days === 1 ? '' : 's'} left`;
+
+  // The ring. Its path is a 180° arc of radius 90, so it is π × 90 ≈ 283 long;
+  // 424 is the dash cycle the stylesheet declares, which leaves the remainder as
+  // the gap. Filling it by share rather than by amount is what lets a 5k budget
+  // and a 50k one read the same way.
+  const ARC = 283;
+  const fillEl = $('#gauge-fill');
+  const stateEl = $('#hero-state');
+  const share = budgeted > 0 ? spent / budgeted : 0;
+  fillEl.style.strokeDasharray = `${Math.min(1, share) * ARC} 424`;
+  fillEl.classList.toggle('over', share > 1);
 
   if (budgeted > 0) {
     const left = budgeted - spent;
     $('#hero-left').textContent = viz.fmt(Math.abs(left));
     $('#hero-sub').textContent =
-      left >= 0
-        ? `left of your ${viz.fmt(budgeted)} across every category`
-        : `over your ${viz.fmt(budgeted)} for this month`;
-    $('#hero-fill').style.width = `${Math.min(100, (spent / budgeted) * 100)}%`;
+      left >= 0 ? `left of ${viz.fmt(budgeted)}` : `over ${viz.fmt(budgeted)}`;
+    // A share of the month against a share of the money: being 80% through the
+    // budget on day 3 and on day 28 are not the same news.
+    const elapsed = (Date.parse(todayIso) - Date.parse(from)) / (Date.parse(to) - Date.parse(from) || 1);
+    stateEl.textContent =
+      left < 0
+        ? `Over by ${viz.fmt(-left)}`
+        : share <= elapsed + 0.05
+          ? 'On track'
+          : `Going fast — ${viz.fmt(left)} left for ${days} day${days === 1 ? '' : 's'}`;
+    stateEl.classList.toggle('over', left < 0);
   } else {
     // No budget yet. Showing "0 left of 0" would be a confident lie, so the
     // card answers the question it still can: what has gone out this month.
     $('#hero-left').textContent = viz.fmt(spent + outside);
-    $('#hero-sub').textContent = 'spent this month — set a budget below to see what is left';
-    $('#hero-fill').style.width = '0%';
+    $('#hero-sub').textContent = 'spent this month';
+    stateEl.textContent = 'Set a budget to see what is left';
+    stateEl.classList.remove('over');
   }
 
+  // The three chips are this cycle, not the selected range - the gauge above
+  // them is this cycle, and two different periods in one card is a trap.
+  const cycle = all.filter((t) => t.date && t.date >= from && t.date <= `${to}T23:59:59`);
+  const cs = viz.summarise(cycle);
+  $('#chip-spent').textContent = viz.fmt(cs.realSpend);
+  $('#chip-in').textContent = viz.fmt(cs.income);
+  $('#chip-days').textContent = days === 0 ? 'Last' : days;
+  $('#chip-days-label').textContent = days === 1 ? 'Day left' : 'Days left';
+
+  renderSpark(all, todayIso);
+  renderHomeBudgets(report, budgeted);
+  renderHomeUpcoming(all);
   renderBasketRow();
   publishGlance(month, from, to, budgeted, spent, report.find((r) => r.id === 'food'));
 }

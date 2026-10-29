@@ -339,7 +339,7 @@ const COLS = [
   { key: 'category', label: 'Category' },
 ];
 
-export function renderTable(el, txns, onEdit, sort, onSort, totalBeforeFilters = null, onSplit = null) {
+export function renderTable(el, txns, onEdit, sort, onSort, totalBeforeFilters = null, onSplit = null, more = null) {
   if (!txns.length) {
     // An empty app and an over-narrow filter are different problems; telling someone
     // with no data to "clear the filters" sends them looking for a filter that isn't set.
@@ -386,7 +386,7 @@ export function renderTable(el, txns, onEdit, sort, onSort, totalBeforeFilters =
                    </div>`
                 : `<div class="cat-cell">
                      <select data-id="${esc(t.id)}" class="cat" title="Set by: ${esc(t.why || '—')}">
-                       ${opts.map((o) => `<option${o === t.category ? ' selected' : ''}>${esc(o)}</option>`).join('')}
+                       <option selected>${esc(t.category)}</option>
                      </select>${
                        onSplit && t.direction === 'Out'
                          ? `<button class="split-open" data-split="${esc(t.id)}" title="Split across categories">⑃</button>`
@@ -398,9 +398,35 @@ export function renderTable(el, txns, onEdit, sort, onSort, totalBeforeFilters =
         })
         .join('')}</tbody></table>`;
 
+  // Fill a picker the first time it is touched. Both events, because a tap on a
+  // phone and a keyboard tab are different ways in, and the list has to be there
+  // before the native picker opens.
+  const fill = (e) => {
+    const sel = e.target.closest && e.target.closest('select.cat');
+    if (!sel || sel.dataset.full) return;
+    const current = sel.value;
+    sel.innerHTML = opts.map((o) => `<option${o === current ? ' selected' : ''}>${esc(o)}</option>`).join('');
+    sel.value = current;
+    sel.dataset.full = '1';
+  };
+  el.addEventListener('pointerdown', fill, true);
+  el.addEventListener('focusin', fill, true);
+
   el.querySelectorAll('select.cat').forEach((sel) => {
     sel.addEventListener('change', () => onEdit(sel.dataset.id, sel.value));
   });
+
+  // Showing every transaction at once is thousands of rows nobody scrolls to, and
+  // the cost is paid again on every re-render. The filters above are the way to
+  // find something; this is the way to keep reading.
+  if (more && more.shown < more.total) {
+    const btn = document.createElement('button');
+    btn.className = 'ghost more-rows';
+    btn.type = 'button';
+    btn.textContent = `Show more — ${more.shown} of ${more.total}`;
+    btn.addEventListener('click', more.onMore);
+    el.appendChild(btn);
+  }
 
   if (onSplit) {
     el.querySelectorAll('button[data-split]').forEach((b) => {

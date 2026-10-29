@@ -24,14 +24,63 @@
       <button id="btn-theme" class="ghost themebtn" title="Switch between light and dark">&#9680;</button>
     </div>
 
-    <section class="hero" id="hero">
-      <div class="hero-top">
-        <span id="hero-cycle"></span>
-        <span class="hero-pill" id="hero-days"></span>
+    <!-- The one figure the app exists to answer, with what it is measured against
+         underneath it. The arc is the same number again for people who read a
+         shape faster than a total. -->
+    <section class="gauge-card">
+      <div class="gauge">
+        <svg viewBox="0 0 220 128" aria-hidden="true">
+          <path class="gauge-track" d="M20 118 A 90 90 0 1 1 200 118" />
+          <path class="gauge-fill" id="gauge-fill" d="M20 118 A 90 90 0 1 1 200 118" />
+        </svg>
+        <div class="gauge-mid">
+          <b class="gauge-big" id="hero-left">0</b>
+          <span class="gauge-of" id="hero-sub"></span>
+        </div>
       </div>
-      <div class="hero-big" id="hero-left">0</div>
-      <p class="hero-sub" id="hero-sub"></p>
-      <div class="hero-bar"><i id="hero-fill"></i></div>
+      <p class="gauge-state" id="hero-state"></p>
+      <div class="chips">
+        <div class="chip chip-out"><span>Spent</span><b id="chip-spent">0</b></div>
+        <div class="chip chip-in"><span>Received</span><b id="chip-in">0</b></div>
+        <div class="chip chip-day"><span id="chip-days-label">Days left</span><b id="chip-days">0</b></div>
+      </div>
+      <p class="gauge-cycle" id="hero-cycle"></p>
+      <div class="hero-bar" hidden><i id="hero-fill"></i></div>
+    </section>
+
+    <div class="duo">
+      <div class="card duo-card">
+        <h3>Last 7 days</h3>
+        <div class="spark" id="spark7"></div>
+      </div>
+      <div class="card duo-card">
+        <h3>Spent today</h3>
+        <b class="duo-big" id="spent-today">0</b>
+        <span class="hint" id="spent-today-note"></span>
+      </div>
+    </div>
+
+    <div id="unparsed" class="unparsed"></div>
+
+    <section class="section" id="home-budgets-sec">
+      <div class="section-head"><h2>Budgets</h2>
+        <button class="link" type="button" data-go="budget">See all</button></div>
+      <div id="home-budgets"></div>
+    </section>
+
+    <section class="section" id="home-upcoming-sec">
+      <div class="section-head"><h2>Upcoming</h2>
+        <button class="link" type="button" data-go="recurring">See all</button></div>
+      <div id="home-upcoming"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Where the money went</h2>
+        <button class="link" type="button" data-go="totals">Totals</button></div>
+      <div class="card">
+        <div id="chart-categories" class="bars" role="list"></div>
+        <p id="transfers-note" class="hint note"></p>
+      </div>
     </section>
 
     <a class="basketrow" href="basket.html">
@@ -47,54 +96,27 @@
         <em id="bskt-sub">Scan a receipt</em>
       </span>
       <span class="bskt-total num" id="bskt-total"></span>
-      <svg class="bskt-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg>
+      <svg class="bskt-go" width="8" height="13" viewBox="0 0 8 13" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg>
     </a>
 
-    <div id="unparsed" class="unparsed"></div>
-
-    <div class="rangerow">
-      <label class="hint" for="range">Showing</label>
-      <select id="range" aria-label="Time range">
-        <option value="all">All time</option>
-        <option value="7">Last 7 days</option>
-        <option value="30">Last 30 days</option>
-        <option value="90">Last 90 days</option>
-      </select>
-    </div>
-
-    <section class="kpis">
-      <div class="kpi lead">
-        <span class="kpi-label">Spent</span>
-        <span class="kpi-value" id="kpi-spend">0</span>
-        <span class="kpi-note">goods, services &amp; fees</span>
-      </div>
-      <div class="kpi">
-        <span class="kpi-label">Received</span>
-        <span class="kpi-value" id="kpi-income">0</span>
-      </div>
-      <div class="kpi">
-        <span class="kpi-label">Net</span>
-        <span class="kpi-value" id="kpi-net">0</span>
-        <span class="kpi-note">received &minus; spent</span>
-      </div>
-      <div class="kpi">
-        <span class="kpi-label">M-PESA fees</span>
-        <span class="kpi-value" id="kpi-fees">0</span>
-      </div>
+    <section class="rowgroup">
+      <button class="navrow" type="button" data-go="txns"><span class="navrow-t">All transactions</span><span id="txn-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="month" id="month-card"><span class="navrow-t">Monthly report</span><span id="month-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="more"><span class="navrow-t">Everything else</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
     </section>
+  </section>
 
-    <!-- Two figures that have to be somewhere but do not deserve a tile each:
-         what moved without being spent, and how much is on file. -->
-    <p class="kpi-aside hint"><span class="num" id="kpi-transfers">0</span> moved or
-      repaid, not counted as spending &middot; <span class="num" id="kpi-count">0</span>
-      transactions on file</p>
-
-    <div class="card">
-      <h2>Where the money went</h2>
-      <div id="chart-categories" class="bars" role="list"></div>
-      <p id="transfers-note" class="hint note"></p>
-    </div>
-
+  <section class="view" data-view="more" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Everything else</h1>
+    </header>
     <section class="rowgroup">
       <h3>Needs you</h3>
       <button class="navrow" type="button" data-go="triage" id="triage-card"><span class="navrow-t">Needs categorising</span><span id="triage-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
@@ -105,7 +127,6 @@
       <button class="navrow" type="button" data-go="month" id="month-card"><span class="navrow-t">Monthly report</span><span id="month-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="navrow" type="button" data-go="budget" id="budget-card"><span class="navrow-t">Budget</span><span id="budget-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="navrow" type="button" data-go="track" id="track-card"><span class="navrow-t">Track a budget line</span><span id="track-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
-      <button class="navrow" type="button" data-go="trend"><span class="navrow-t">Spending over time</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
     </section>
     <section class="rowgroup">
       <h3>Money</h3>
@@ -129,6 +150,59 @@
       <button class="navrow" type="button" data-go="settings" id="settings-card"><span class="navrow-t">Who you are</span><span id="settings-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="navrow" type="button" data-go="data"><span class="navrow-t">Data &amp; sync</span><span id="data-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
     </section>
+  </section>
+
+  <section class="view" data-view="totals" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Totals</h1>
+    </header>
+    <div class="rangerow">
+      <label class="hint" for="range">Showing</label>
+      <select id="range" aria-label="Time range">
+        <option value="all">Everything the app is reading</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+    </div>
+    <section class="kpis">
+      <div class="kpi lead">
+        <span class="kpi-label">Spent</span>
+        <span class="kpi-value" id="kpi-spend">0</span>
+        <span class="kpi-note">goods, services &amp; fees</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Received</span>
+        <span class="kpi-value" id="kpi-income">0</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Net</span>
+        <span class="kpi-value" id="kpi-net">0</span>
+        <span class="kpi-note">received &minus; spent</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">M-PESA fees</span>
+        <span class="kpi-value" id="kpi-fees">0</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Moved / repaid</span>
+        <span class="kpi-value" id="kpi-transfers">0</span>
+        <span class="kpi-note">not counted as spending</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Transactions</span>
+        <span class="kpi-value" id="kpi-count">0</span>
+      </div>
+    </section>
+    <div class="card">
+      <h2>Spending over time</h2>
+      <div id="chart-trend" class="trend"></div>
+    </div>
   </section>
 
   <section class="view" data-view="triage" hidden>
@@ -212,20 +286,6 @@
       <select id="track-sel" aria-label="Budget line or category to track"></select>
     </div>
     <div id="track"></div>
-    </div>
-  </section>
-
-  <section class="view" data-view="trend" hidden>
-    <header class="viewbar">
-      <button class="back" type="button" aria-label="Back">
-        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
-      </button>
-      <h1>Spending over time</h1>
-    </header>
-    <div class="card">
-<div id="chart-trend" class="trend"></div>
     </div>
   </section>
 
@@ -516,6 +576,20 @@
     </header>
     <div class="card">
 <p class="hint">Everything lives in this browser's storage — this device only. Clearing browser data wipes it, so back up now and then.</p>
+
+      <h3 class="debt-group">How far back to read</h3>
+      <p class="hint">Nothing is deleted &mdash; every message stays on file. This is how much of it
+        the screens load. A phone re-reading four years of M-PESA every time a figure
+        changes is what made the app slow; five months is enough for budgets, trends and
+        the monthly report, and you can widen it whenever you want the long view.</p>
+      <select id="set-window" aria-label="How far back to read">
+        <option value="3">The last 3 months</option>
+        <option value="5">The last 5 months</option>
+        <option value="12">The last 12 months</option>
+        <option value="24">The last 2 years</option>
+        <option value="0">Everything on file</option>
+      </select>
+      <p class="hint" id="window-note"></p>
 
       <h3 class="debt-group">Moving between phone and laptop</h3>
       <p class="hint">Send a backup from one device and restore it on the other. Everything is keyed by M-PESA receipt, so importing can't double-count and re-importing the same file does nothing. Do it both ways and both devices end up with everything.</p>

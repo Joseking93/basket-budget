@@ -93,7 +93,18 @@ function migrate() {
   if (changed) save();
 }
 
+/**
+ * Bumped by every write. It is what lets the page tell "the data changed" from
+ * "you picked a different time range", so categorising ten thousand rows through
+ * sixty rules happens when something actually moved, not on every click.
+ */
+let rev = 0;
+export function revision() {
+  return rev;
+}
+
 export function save() {
+  rev++;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch (err) {
@@ -368,7 +379,11 @@ export function offsetCandidates(refundId, { query = '', limit = 40 } = {}) {
 }
 
 export function settings() {
-  if (state.settings === null) state.settings = { ...DEFAULT_SETTINGS };
+  // Merged over the defaults, not just created from them. An install made before
+  // a setting existed has no key for it, and reading that absence as "0" is how a
+  // new "how far back to read" arrived switched off on the one device that needed
+  // it. Anything stored still wins; only the gaps are filled.
+  state.settings = { ...DEFAULT_SETTINGS, ...(state.settings || {}) };
   return state.settings;
 }
 

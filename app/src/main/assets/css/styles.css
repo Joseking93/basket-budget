@@ -68,6 +68,113 @@ h2 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -.018em; }
 h3 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
 h4 { font-size: 13px; font-weight: 600; }
 
+/* ── The home screen ───────────────────────────────────────── */
+/* One figure in a ring, its context under it, then sections of cards. Taken from
+   the three apps Jose sent: they all say the same thing in the same order, and
+   none of them opens with a list of links. */
+.gauge-card {
+  background: var(--card); border: 1px solid var(--card-line);
+  border-radius: var(--r-xl); padding: 18px 16px 16px;
+  box-shadow: var(--card-shadow);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.gauge { position: relative; width: 100%; max-width: 280px; }
+.gauge svg { display: block; width: 100%; height: auto; overflow: visible; }
+.gauge path { fill: none; stroke-width: 14; stroke-linecap: round; }
+.gauge-track { stroke: var(--track); }
+.gauge-fill {
+  stroke: var(--tint);
+  /* Set from script: the arc is 424 long, so the dash is the share spent. */
+  stroke-dasharray: 0 424;
+  transition: stroke-dasharray .5s var(--ease), stroke .3s var(--ease);
+}
+.gauge-fill.over { stroke: var(--bad); }
+.gauge-mid {
+  position: absolute; inset: 34% 12% 12%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  text-align: center; pointer-events: none;
+}
+.gauge-big { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.05; }
+.gauge-of { font-size: 12.5px; color: var(--ink2); }
+.gauge-state {
+  margin: 6px 0 0; padding: 6px 14px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600;
+  background: var(--tint-soft); color: var(--tint); border: 1px solid var(--tint-line);
+}
+.gauge-state.over { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+.gauge-state:empty { display: none; }
+.gauge-cycle { margin: 10px 0 0; font-size: 11.5px; color: var(--muted); text-align: center; }
+
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; margin-top: 14px; }
+.chip {
+  border-radius: var(--r-md); padding: 10px 11px;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.chip span { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .75; }
+.chip b { font-size: 17px; font-weight: 700; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; }
+/* Three quiet tints rather than three shouts: they label the chips, they are not
+   a scale, and nothing here is ordered. */
+.chip-out { background: var(--chip-1); color: var(--chip-1-ink); }
+.chip-in { background: var(--chip-2); color: var(--chip-2-ink); }
+.chip-day { background: var(--chip-3); color: var(--chip-3-ink); }
+
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.duo-card { display: flex; flex-direction: column; gap: 6px; justify-content: space-between; }
+.duo-card h3 {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted); margin: 0;
+}
+.duo-big { font-size: 26px; font-weight: 700; letter-spacing: -.025em; }
+.spark { display: flex; align-items: flex-end; gap: 5px; height: 56px; }
+.spark i {
+  flex: 1; background: var(--tint); border-radius: 3px 3px 1px 1px;
+  min-height: 2px; display: block; opacity: .45;
+}
+.spark i.today { opacity: 1; }
+.spark-days { display: flex; gap: 5px; margin-top: 4px; }
+.spark-days span { flex: 1; text-align: center; font-size: 9.5px; color: var(--muted); }
+
+.section { display: flex; flex-direction: column; gap: 9px; }
+.section-head { display: flex; align-items: baseline; gap: 10px; }
+.section-head h2 { flex: 1 1 auto; font-size: 18px; }
+.link {
+  border: 0; background: none; padding: 0; color: var(--tint);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.link:hover { background: none; border: 0; text-decoration: underline; }
+
+/* A budget or an upcoming payment: a round icon, what it is, what is left of it,
+   the figure, a bar and a chevron. */
+.bcard {
+  display: grid; grid-template-columns: 38px 1fr auto 8px;
+  align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--card); border: 1px solid var(--card-line);
+  border-radius: var(--r-md); padding: 13px 14px; margin-bottom: 8px;
+  font: inherit; color: var(--ink);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+}
+.bcard:hover { background: var(--card-3); border-color: var(--card-line); }
+.bcard:last-child { margin-bottom: 0; }
+.bc-icon {
+  width: 38px; height: 38px; border-radius: 19px; display: flex;
+  align-items: center; justify-content: center; font-size: 17px;
+  background: var(--tint-soft); color: var(--tint);
+}
+.bc-icon.neg { background: var(--bad-soft); color: var(--bad); }
+.bc-icon.pos { background: var(--good-soft); color: var(--good); }
+.bc-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bc-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-sub { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-fig { text-align: right; display: flex; flex-direction: column; gap: 1px; }
+.bc-amt { font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.bc-amt.in { color: var(--good); }
+.bc-of { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bc-bar { grid-column: 2 / -1; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.bc-bar i { display: block; height: 100%; background: var(--tint); border-radius: 3px; }
+.bc-bar i.over { background: var(--bad); }
+.bc-go { color: var(--muted); }
+
 .kpi-aside { margin: -4px 0 0; text-align: center; }
 
 /* ── Views ─────────────────────────────────────────────────── */
@@ -102,7 +209,9 @@ h4 { font-size: 13px; font-weight: 600; }
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 13px 14px; text-align: left; font: inherit; font-weight: 500;
   color: var(--ink); background: var(--card); border: 1px solid var(--card-line);
-  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  /* No backdrop-filter here on purpose. Nineteen rows is nineteen more blurred
+     layers for the phone to composite on every scroll, and a list row is not
+     the thing the glass was for. */
   border-radius: 0; margin-top: -1px;
 }
 /* One block with rounded ends, not a stack of separate pills. */
