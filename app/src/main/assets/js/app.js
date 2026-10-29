@@ -33,6 +33,9 @@ const state = {
   range: 'all',
   search: '',
   catFilter: 'all',
+  // A SET of categories, for the ring's folded slice - which stands for several
+  // and so cannot be expressed as catFilter, a single name.
+  drillCats: null,
   dirFilter: 'all',
   acctFilter: 'all',
   showSettled: false,
@@ -357,6 +360,7 @@ function render() {
     );
   }
   if (state.catFilter !== 'all') bits.push(state.catFilter);
+  if (state.drillCats) bits.push(`${viz.REST_LABEL.toLowerCase()} (${state.drillCats.length} categories)`);
   if (state.search) bits.push(`“${state.search}”`);
   if (state.dirFilter !== 'all') bits.push(state.dirFilter === 'Out' ? 'out only' : 'in only');
   if (state.acctFilter !== 'all') bits.push(state.acctFilter === 'bank' ? 'bank' : 'M-PESA');
@@ -368,6 +372,7 @@ function render() {
       state.drillFrom = null;
       state.drillTo = null;
       state.drillClass = null;
+      state.drillCats = null;
       state.catFilter = 'all';
       state.search = '';
       state.dirFilter = 'all';
@@ -2324,13 +2329,15 @@ function applyFilters(txns) {
     // shows up when you drill THAT month. A slice matches if its category fits the
     // filter AND its month is the drilled one — its own if the slice was assigned one,
     // otherwise the transaction's.
-    if (state.drillMonth || state.catFilter !== 'all') {
+    if (state.drillMonth || state.catFilter !== 'all' || state.drillCats) {
       const parts =
         t.splits && t.splits.length ? t.splits : [{ category: t.category, month: null }];
       const monthOf = (p) => p.month || monthOfTxn(t);
+      const inSet = (p) => !state.drillCats || state.drillCats.includes(p.category);
       const hit = parts.some(
         (p) =>
           (state.catFilter === 'all' || p.category === state.catFilter) &&
+          inSet(p) &&
           (!state.drillMonth || monthOf(p) === state.drillMonth)
       );
       if (!hit) return false;
@@ -2381,10 +2388,19 @@ function refreshAccountFilter(txns) {
  * dead end — every number should be a question you can follow.
  */
 function wireDrill(root, scopeMonth) {
-  root.querySelectorAll('[data-drill-cat], [data-drill-name]').forEach((el) => {
+  root.querySelectorAll('[data-drill-cat], [data-drill-cats], [data-drill-name]').forEach((el) => {
     const go = () => {
       const cat = el.dataset.drillCat;
+      const cats = el.dataset.drillCats;
       const name = el.dataset.drillName;
+      state.drillCats = null;
+      if (cats) {
+        // The ring's folded slice: filter to everything it stands for, not to a
+        // category called after it.
+        state.drillCats = cats.split('|');
+        state.catFilter = 'all';
+        state.search = '';
+      }
       if (cat) {
         state.catFilter = cat;
         state.search = '';
@@ -2402,7 +2418,8 @@ function wireDrill(root, scopeMonth) {
       const table = $('#table-txns');
       showView('txns');
       table.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      toast(`Showing ${cat || name}${state.drillMonth ? ` in ${monthLabel(state.drillMonth)}` : ''}. Clear the filters to go back.`);
+      const what = cat || name || `${state.drillCats.length} smaller categories`;
+      toast(`Showing ${what}${state.drillMonth ? ` in ${monthLabel(state.drillMonth)}` : ''}. Clear the filters to go back.`);
     };
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => {
@@ -2711,6 +2728,7 @@ function wire() {
 
   $('#cat-filter').addEventListener('change', (e) => {
     state.catFilter = e.target.value;
+    state.drillCats = null; // picking one category replaces a set of them
     render();
   });
 
@@ -3067,6 +3085,7 @@ function openBehind({ month = null, from = null, to = null, dir = 'all', search 
   state.drillFrom = from;
   state.drillTo = to;
   state.drillClass = spending ? 'spending' : null;
+  state.drillCats = null;
   state.dirFilter = dir;
   state.search = search;
   state.catFilter = 'all';
@@ -3183,6 +3202,7 @@ function renderBalances() {
       state.drillFrom = null;
       state.drillTo = null;
       state.drillClass = null;
+      state.drillCats = null;
       state.catFilter = 'all';
       state.dirFilter = 'all';
       state.search = '';

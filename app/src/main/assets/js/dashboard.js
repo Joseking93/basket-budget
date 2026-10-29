@@ -486,6 +486,15 @@ export const seriesColour = (slot) => (isDark() ? SERIES_DARK : SERIES_LIGHT)[sl
 export const DONUT_SLICES = 7;
 
 /**
+ * What the folded tail is called.
+ *
+ * Deliberately not "Other": that is a real category, and naming the fold after
+ * one means a tap on it filters to that category instead of to the things it
+ * actually folded up.
+ */
+export const REST_LABEL = 'Everything else';
+
+/**
  * Rank the categories and fold the tail.
  *
  * @param {object[]} rows  byCategory output, biggest first
@@ -498,7 +507,7 @@ export function donutRows(rows) {
   return [
     ...head,
     {
-      category: 'Other',
+      category: REST_LABEL,
       total: tail.reduce((a, r) => a + r.total, 0),
       count: tail.reduce((a, r) => a + r.count, 0),
       rest: tail.map((r) => r.category),
@@ -509,6 +518,10 @@ export function donutRows(rows) {
 /**
  * @param {Function} slotOf  category -> 0..7, stable across renders
  */
+/** The folded row filters to everything it folded; a real one to itself. */
+const drillAttr = (r) =>
+  r.rest ? `data-drill-cats="${esc(r.rest.join('|'))}"` : `data-drill-cat="${esc(r.category)}"`;
+
 export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
   const total = rows.reduce((a, r) => a + r.total, 0);
   if (!rows.length || total <= 0) {
@@ -534,7 +547,7 @@ export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
       return `<circle class="ring-arc" cx="60" cy="60" r="${R}" fill="none"
                  stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
                  stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
-                 data-drill-cat="${esc(r.category)}"><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
+                 ${drillAttr(r)}><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
     })
     .join('');
 
@@ -543,7 +556,7 @@ export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
       const pct = Math.round((r.total / total) * 100);
       // The name is always written out: three of the light-mode hues sit under
       // 3:1 on white, so identity can never rest on the colour alone.
-      return `<button type="button" class="leg" data-drill-cat="${esc(r.category)}"
+      return `<button type="button" class="leg" ${drillAttr(r)}
                  title="${r.rest ? esc(r.rest.join(', ')) : 'Show these transactions'}">
           <span class="leg-dot" style="background:${seriesColour(slotOf(r.category))}"></span>
           <span class="leg-text">
