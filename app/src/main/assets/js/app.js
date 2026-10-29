@@ -3015,6 +3015,7 @@ async function init() {
   wireSms();
   wireCash();
   wireCategoryPicker();
+  wireBackOverlays();
   wireUpdates();
   // Basket's receipts live at this same origin now, so they are simply read.
   pullBasketReceipts();
@@ -3349,6 +3350,65 @@ function renderHomeUpcoming(all) {
       label: `Every payment to ${el.dataset.due}`,
     }));
   });
+}
+
+/* ---- Back closes what is open --------------------------------------------- */
+//
+// The phone's back gesture asks the page before it leaves the screen, but only
+// when the page has said something is open. Nothing here ever said so, so back
+// went a screen back with the category picker still over the top of it.
+//
+// Overlays are FOUND rather than registered: every dialog already on this page
+// is covered without being touched, and so is the next one somebody adds.
+
+/** Everything floating over the page right now, in the order back should eat it. */
+function openOverlays() {
+  const shown = (el) => el && !el.hidden && getComputedStyle(el).display !== 'none';
+  return [
+    $('#catpick'), // opened over the dialogs, so it closes first
+    ...document.querySelectorAll('.modal-overlay:not(#catpick)'),
+    $('#menu'),
+  ].filter(shown);
+}
+
+function tellAndroidAboutOverlays() {
+  try {
+    if (window.Android && window.Android.setSheetOpen) {
+      window.Android.setSheetOpen(openOverlays().length > 0);
+    }
+  } catch (e) {
+    /* an older build without the bridge */
+  }
+}
+
+function wireBackOverlays() {
+  // Android calls this and goes back itself only if it returns false.
+  window.bbCloseSheet = () => {
+    const open = openOverlays();
+    if (!open.length) return false;
+    const top = open[0];
+
+    if (top.id === 'catpick') closeCategoryPicker(null);
+    else if (top.id === 'menu') $('#menu-scrim').click();
+    else {
+      // A dialog's own close button knows what else to put back; only when
+      // there isn't one does this just hide the thing.
+      const close = top.querySelector('.pick-close, [data-cancel-pick], [data-offcancel]');
+      if (close) close.click();
+      else top.hidden = true;
+    }
+    tellAndroidAboutOverlays();
+    return true;
+  };
+
+  // `hidden` is how every one of them is shown and hidden, so watching that
+  // attribute keeps Android in step without each dialog having to remember to.
+  new MutationObserver(tellAndroidAboutOverlays).observe(document.body, {
+    attributes: true,
+    attributeFilter: ['hidden'],
+    subtree: true,
+  });
+  tellAndroidAboutOverlays();
 }
 
 /* ---- Choosing a category -------------------------------------------------- */
