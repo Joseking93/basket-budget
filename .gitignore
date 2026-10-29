@@ -1,0 +1,14 @@
+# Build output
+build/
+.gradle/
+.kotlin/
+
+# Local machine paths and keys
+local.properties
+*.jks
+*.keystore
+
+# Editors
+.idea/
+*.iml
+.DS_Store
