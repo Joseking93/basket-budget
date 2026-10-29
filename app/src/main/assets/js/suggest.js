@@ -93,3 +93,51 @@ export function suggestFor(rows, chosenFor) {
 }
 
 const fmtish = (n) => Math.round(n).toLocaleString('en-GB');
+
+/**
+ * A guess at what a merchant is, from its name alone.
+ *
+ * Deliberately separate from the rules in rules.js, and deliberately looser.
+ * A rule is applied without being asked, so it has to be nearly certain; this
+ * is only ever OFFERED at the top of the picker, with the word that triggered
+ * it, so being wrong costs one tap and being right saves a scroll through
+ * thirty categories. That different price buys a much broader net — "MEGA" or
+ * "PLAZA" in a till name is not proof of anything, but it is a good enough
+ * reason to put Shopping where your thumb already is.
+ */
+const HINTS = [
+  [/MALL|PLAZA|MEGA|ARCADE|CENTRE|CENTER|BOUTIQUE|SHOP|STORE|COLLECTION|FASHION|WEAR|SHOE|TAILOR/i, 'Shopping'],
+  [/MARKET|GROCER|FRESH|VEG|FRUIT|BUTCHER|MEAT|MILK|DAIRY|CEREAL|SUPERMARK/i, 'Groceries'],
+  [/HOTEL|RESTAURANT|CAF|BAR\b|GRILL|KITCHEN|EATERY|BISTRO|PUB\b|CLUB\b|LOUNGE|CINEMA|ENTERTAIN/i, 'Entertainment'],
+  [/PHARM|CHEMIST|HOSPITAL|CLINIC|MEDIC|HEALTH|DENTAL|OPTIC|LAB\b/i, 'Health & Pharmacy'],
+  [/PETROL|FUEL|ENERG|GARAGE|MOTOR|AUTO|TYRE|SPARE|MECHANIC|CAR WASH/i, 'Transport & Fuel'],
+  [/SACCO|MATATU|SHUTTLE|TRAVEL|BUS\b|TAXI|BOLT|UBER|LITTLE/i, 'Transport & Fuel'],
+  [/WATER|POWER|KPLC|TOKEN|GAS\b|GARBAGE|SEWER/i, 'Utilities & Power'],
+  [/SCHOOL|ACADEMY|COLLEGE|UNIVERSITY|TUITION|FEES/i, 'Government & Fees'],
+  [/SALON|BARBER|BEAUTY|SPA\b|NAIL|COSMETIC/i, 'Personal Care'],
+  [/AGENC|PROPERT|LAND\b|REALT|ESTATE|APARTMENT|RENT/i, 'Rent & Housing'],
+  [/CHURCH|MOSQUE|HARAMBEE|SACCO WELFARE|WELFARE/i, 'Family'],
+];
+
+/**
+ * @param {string} name   a counterparty
+ * @param {number} amount what was paid, for the small-purchase fallback
+ * @param {number} small  the limit below which a payment is usually groceries
+ * @returns {{category: string, why: string}|null} the guess and the reason
+ */
+export function guessFor(name, amount = 0, small = 200) {
+  const text = String(name || '');
+  for (const [re, category] of HINTS) {
+    const hit = text.match(re);
+    if (hit) return { category, why: `the name says “${hit[0]}”` };
+  }
+  // Nothing in the name. Size is the only thing left, and it does say
+  // something: a hundred shillings over a counter is nearly always food. It is
+  // a weak enough signal to stay a SUGGESTION - the same reasoning applied
+  // automatically to person-to-person sends, where the limit is yours to set,
+  // but a till could as easily be airtime or a matatu fare.
+  if (amount > 0 && amount <= small) {
+    return { category: 'Groceries', why: `small — ${Math.round(amount)} or less is usually food` };
+  }
+  return null;
+}

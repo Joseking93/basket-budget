@@ -23,7 +23,7 @@ import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
 import * as cash from './cash.js';
 import { cycleStartOf } from './salary.js';
-import { suggestFor } from './suggest.js';
+import { suggestFor, guessFor } from './suggest.js';
 import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
 
 const rampFor = (i, n) => viz.rampAt(i, n);
@@ -2512,8 +2512,13 @@ function wireMenu() {
   btn.addEventListener('click', () => show(menu.hidden));
   if (scrim) scrim.addEventListener('click', () => show(false));
   // Every row closes it: a menu you have to dismiss as well as choose from is
-  // one more tap than anyone wants.
-  menu.querySelectorAll('button').forEach((el) => el.addEventListener('click', () => show(false)));
+  // one more tap than anyone wants. The update buttons are the exception -
+  // closing on the tap that starts the check is how you end up tapping it
+  // again, because nothing on screen ever said it had begun.
+  menu.querySelectorAll('button').forEach((el) => {
+    if (el.closest('#update-box')) return;
+    el.addEventListener('click', () => show(false));
+  });
   addEventListener('keydown', (e) => {
     if (e.key === 'Escape') show(false);
   });
@@ -3328,6 +3333,20 @@ function openCategoryPicker(sel) {
       ? [...sel.options].map((o) => ({ value: o.value, label: o.textContent }))
       : Object.keys(CATEGORIES).map((c) => ({ value: c, label: c }));
 
+  // What this particular payment looks like. The picker knows which row it was
+  // opened from, so it can lead with a guess instead of thirty categories in
+  // alphabetical order - CARRERFOUR MEGA 6 is plainly a shop, and saying so
+  // costs a tap to dismiss and saves a scroll to accept.
+  let guess = null;
+  if (current === 'Uncategorised' || !current) {
+    const id = sel.dataset.id;
+    const row = id && store.getState().transactions[id];
+    const name = row ? row.counterparty : sel.dataset.name;
+    const limit = Number(store.settings().smallSendLimit) || 200;
+    guess = guessFor(name, row ? row.amount : 0, limit);
+    if (guess && !options.some((o) => o.value === guess.category)) guess = null;
+  }
+
   const counts = categoriesByUse();
   const used = options
     .filter((o) => counts.get(o.value) && o.value !== current)
@@ -3338,14 +3357,25 @@ function openCategoryPicker(sel) {
     const needle = q.trim().toLowerCase();
     const hit = (o) => o.label.toLowerCase().includes(needle);
     const matched = needle ? options.filter(hit) : options;
-    const top = needle ? [] : used;
+    const top = needle ? [] : used.filter((o) => !guess || o.value !== guess.category);
 
     const row = (o) =>
       `<button type="button" class="pick-row${o.value === current ? ' is-on' : ''}" data-pick="${escapeHtml(o.value)}">${escapeHtml(o.label)}</button>`;
 
+    const head = [];
+    if (!needle && guess) {
+      head.push(
+        `<p class="catpick-head">Looks like</p>`,
+        `<button type="button" class="pick-row pick-guess" data-pick="${escapeHtml(guess.category)}">
+           <strong>${escapeHtml(guess.category)}</strong><span>${escapeHtml(guess.why)}</span>
+         </button>`
+      );
+    }
+    if (top.length) head.push(`<p class="catpick-head">Most used</p>`, top.map(row).join(''));
+    if (head.length) head.push(`<p class="catpick-head">Everything</p>`);
+
     list.innerHTML = matched.length
-      ? (top.length ? `<p class="catpick-head">Most used</p>${top.map(row).join('')}<p class="catpick-head">Everything</p>` : '') +
-        matched.map(row).join('')
+      ? head.join('') + matched.map(row).join('')
       : `<p class="catpick-none">Nothing matches “${escapeHtml(q)}”.</p>`;
   };
 
