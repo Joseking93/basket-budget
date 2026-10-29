@@ -68,6 +68,56 @@ h2 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -.018em; }
 h3 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
 h4 { font-size: 13px; font-weight: 600; }
 
+.kpi-aside { margin: -4px 0 0; text-align: center; }
+
+/* ── Views ─────────────────────────────────────────────────── */
+/* The page used to be nineteen collapsible cards stacked on top of each other,
+   which on a phone is several thousand pixels of other people's business before
+   you reach anything. It is now a home screen and one view per thing: you go in,
+   you come back. Same panels, same ids, different frame. */
+.view { display: flex; flex-direction: column; gap: 14px; }
+
+.viewbar {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 2px -8px;
+}
+.viewbar h1 { font-size: 22px; letter-spacing: -.02em; }
+.back {
+  width: 36px; height: 36px; padding: 0; flex: none; border: 0; background: none;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tint); border-radius: 18px;
+}
+.back:hover { background: var(--card-2); border: 0; }
+
+/* A grouped list, the shape every phone already uses for "everything else". */
+.rowgroup { display: flex; flex-direction: column; }
+.rowgroup h3 {
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); margin: 18px 0 7px 4px;
+}
+/* A group whose every row is hidden has nothing to announce. */
+.rowgroup:not(:has(.navrow:not([hidden]))) { display: none; }
+
+.navrow {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 14px; text-align: left; font: inherit; font-weight: 500;
+  color: var(--ink); background: var(--card); border: 1px solid var(--card-line);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border-radius: 0; margin-top: -1px;
+}
+/* One block with rounded ends, not a stack of separate pills. */
+.rowgroup .navrow:first-of-type { border-radius: var(--r-md) var(--r-md) 0 0; margin-top: 0; }
+.rowgroup .navrow:last-of-type { border-radius: 0 0 var(--r-md) var(--r-md); }
+.rowgroup .navrow:only-of-type { border-radius: var(--r-md); }
+.navrow:hover { background: var(--card-3); border-color: var(--card-line); }
+.navrow:active { background: var(--card-3); }
+.navrow-t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navrow .badge { margin-left: 0; }
+.navrow-go { flex: none; color: var(--muted); }
+
+/* First run: the one thing that must be filled in. */
+#settings-card.needs-setup .navrow-t { color: var(--tint); }
+
 .controls { display: flex; gap: 8px; align-items: center; flex: none; }
 .rangerow { display: flex; align-items: center; gap: 8px; margin: 2px 2px -4px; }
 .rangerow select { font-size: 13px; padding: 7px 28px 7px 10px; }
@@ -528,7 +578,6 @@ tr.picked > td { background: var(--accent-soft); }
 .set-row { display: flex; flex-direction: column; gap: 4px; }
 .set-row > span { font-size: 12px; font-weight: 600; }
 .set-row em { font-style: normal; }
-#settings-card.needs-setup { border-color: var(--accent); }
 
 /* ── Reconciliation ──────────────────────────────────────────────────────── */
 .recon-head { display: flex; gap: 30px; flex-wrap: wrap; margin: 14px 0 4px; }
@@ -650,7 +699,8 @@ tr.is-stale { opacity: .55; }
   .kpi.lead .kpi-value { font-size: 27px; }
   .debt-grid { grid-template-columns: 1fr; }
   .filters, .namerule-add, .bulk-bar { flex-direction: column; align-items: stretch; }
-  .filters select, .filters input, .namerule-add input, .namerule-add select {
+  .filters select, .filters input, .filters input[type=search],
+  .namerule-add input, .namerule-add select {
     width: 100%; max-width: none; flex: 0 0 auto;
   }
   .namerule-add button, .filters button { width: 100%; }
@@ -678,6 +728,9 @@ tr.is-stale { opacity: .55; }
 
 /* ── Print: a report you can hand to someone ─────────────────────────────── */
 @media print {
+  /* [hidden] is !important, so this has to be too - and it is more specific. */
+  body.printing .view[hidden] { display: flex !important; }
+  body.printing .viewbar .back, body.printing .rowgroup { display: none !important; }
   .topbar, .intake, #triage-card, .filters, .cat-chip, #drill-chip,
   .namerule-add, .debt-actions, .pick-box, .pay-form, #toast,
   .budget-assign, .split-open, .debt-remove { display: none !important; }

@@ -1062,7 +1062,7 @@ function renderTrack(all) {
         state.search = '';
         state.dirFilter = 'Out';
         render();
-        $('details[data-panel="txns"]').open = true;
+        showView('txns');
         $('#table-txns').scrollIntoView({ behavior: 'smooth', block: 'start' });
         toast(`Showing ${label} in ${monthLabel(el.dataset.trackMonth)}.`);
       };
@@ -2139,7 +2139,7 @@ function wireDrill(root, scopeMonth) {
       state.dirFilter = 'all';
       render();
       const table = $('#table-txns');
-      $('details[data-panel="txns"]').open = true;
+      showView('txns');
       table.scrollIntoView({ behavior: 'smooth', block: 'start' });
       toast(`Showing ${cat || name}${state.drillMonth ? ` in ${monthLabel(state.drillMonth)}` : ''}. Clear the filters to go back.`);
     };
@@ -2153,7 +2153,6 @@ function wireDrill(root, scopeMonth) {
   });
 }
 
-const PANEL_KEY = 'mpesa-tracker.panels';
 /* The two pages are one app at one origin; these are how they hand figures to
    each other without either having to recompute the other's work. */
 const TRACKER_GLANCE = 'mpesa-tracker.glance';
@@ -2161,34 +2160,38 @@ const BASKET_GLANCE = 'basket.glance';
 const BASKET_RECEIPTS = 'basket-receipts-v1';
 const BASKET_PULLED = 'mpesa-tracker.basket-pulled';
 
-// Remember which panels are open. Without this, every rule you set re-renders and
-// the page springs back to its defaults, which is maddening mid-triage.
-function wirePanels() {
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}');
-  } catch {
-    saved = {};
-  }
-
-  document.querySelectorAll('details.card[data-panel]').forEach((d) => {
-    const key = d.dataset.panel;
-    if (key in saved) d.open = saved[key];
-    // An empty app is all intake and nothing else, so that one panel opens itself
-    // the first time. Once there is anything on file it closes, because reaching
-    // the figures should not mean scrolling past a textarea and a file picker.
-    else if (key === 'intake' && !store.allTransactions().length) d.open = true;
-    d.addEventListener('toggle', () => {
-      saved[key] = d.open;
-      try {
-        localStorage.setItem(PANEL_KEY, JSON.stringify(saved));
-      } catch {
-        // Not worth interrupting anyone over; the panel still opened.
-      }
-    });
+/**
+ * Which view is on screen.
+ *
+ * Nineteen panels used to sit open on one page. They are the same panels; what
+ * changed is that you now go INTO one and come back, so the home screen can be a
+ * home screen. The hash carries it, which means Android's back button works for
+ * free - no history stack of our own to get out of step.
+ */
+function showView(view, push = true) {
+  const target = document.querySelector(`.view[data-view="${view}"]`) ? view : 'home';
+  document.querySelectorAll('.view').forEach((v) => {
+    v.hidden = v.dataset.view !== target;
   });
+  const want = target === 'home' ? ' ' : `#${target}`;
+  if (push && location.hash.replace('#', '') !== target && !(target === 'home' && !location.hash)) {
+    history.pushState(null, '', want);
+  }
+  window.scrollTo(0, 0);
 }
 
+function wireViews() {
+  document.querySelectorAll('[data-go]').forEach((el) => {
+    el.addEventListener('click', () => showView(el.dataset.go));
+  });
+  document.querySelectorAll('.back').forEach((b) => {
+    b.addEventListener('click', () => history.back());
+  });
+  addEventListener('popstate', () => showView(location.hash.replace('#', '') || 'home', false));
+  showView(location.hash.replace('#', '') || 'home', false);
+}
+
+// the page springs back to its defaults, which is maddening mid-triage.
 /** A summary line for panels that are closed — collapsed shouldn't mean invisible. */
 function setBadge(id, text, alert = false) {
   const el = $(id);
@@ -2404,9 +2407,13 @@ function wire() {
   });
 
   $('#btn-print').addEventListener('click', () => {
-    // Open every panel first: print CSS can't reveal a collapsed <details>.
-    document.querySelectorAll('details.card').forEach((d) => (d.open = true));
-    setTimeout(() => window.print(), 60);
+    // Every view at once: a printed report that stops at whichever one you
+    // happened to be looking at would be worse than no report.
+    document.body.classList.add('printing');
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('printing');
+    }, 60);
   });
 
   $('#btn-export').addEventListener('click', () => {
@@ -2563,7 +2570,7 @@ function handleShared() {
   const { transactions, unparsed } = parseMessages(shared);
   if (!transactions.length) {
     $('#sms-input').value = shared;
-    $('details[data-panel="intake"]').open = true;
+    showView('intake');
     toast("Shared, but I couldn't read an M-PESA message in it. It's in the box above.", 'warn');
     return;
   }
@@ -2605,7 +2612,7 @@ async function init() {
   // a strict subset of the real statement — and its charge ids used a different
   // suffix scheme, so one row survived dedupe as a phantom. Statements are the
   // source of truth; the app starts empty and you import.
-  wirePanels();
+  wireViews();
   wire();
   wireSettings();
   wireSms();
@@ -2623,10 +2630,9 @@ async function init() {
   registerSW();
 
   // First run: the identity panel is the one thing that must be filled in, so open it.
-  if (!isConfigured()) {
-    $('#settings-card').open = true;
-    $('#settings-card').scrollIntoView({ block: 'center' });
-  }
+  if (!isConfigured()) showView('settings');
+  // Nothing on file yet: the home screen would be four zeros and a list.
+  else if (!store.allTransactions().length && !location.hash) showView('intake');
 }
 
 

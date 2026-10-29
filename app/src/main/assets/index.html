@@ -15,13 +15,13 @@
 <body>
 
 <main>
-  <section class="home">
+  <section class="view" data-view="home">
     <div class="hello">
       <div>
         <p class="today" id="home-today"></p>
         <h1 id="home-greet">Hello</h1>
       </div>
-      <button id="btn-theme" class="ghost themebtn" title="Switch between light and dark">◐</button>
+      <button id="btn-theme" class="ghost themebtn" title="Switch between light and dark">&#9680;</button>
     </div>
 
     <section class="hero" id="hero">
@@ -47,15 +47,340 @@
         <em id="bskt-sub">Scan a receipt</em>
       </span>
       <span class="bskt-total num" id="bskt-total"></span>
-      <svg class="bskt-go" width="8" height="13" viewBox="0 0 8 13" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round"
-           stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg>
+      <svg class="bskt-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg>
     </a>
+
+    <div id="unparsed" class="unparsed"></div>
+
+    <div class="rangerow">
+      <label class="hint" for="range">Showing</label>
+      <select id="range" aria-label="Time range">
+        <option value="all">All time</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+    </div>
+
+    <section class="kpis">
+      <div class="kpi lead">
+        <span class="kpi-label">Spent</span>
+        <span class="kpi-value" id="kpi-spend">0</span>
+        <span class="kpi-note">goods, services &amp; fees</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Received</span>
+        <span class="kpi-value" id="kpi-income">0</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Net</span>
+        <span class="kpi-value" id="kpi-net">0</span>
+        <span class="kpi-note">received &minus; spent</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">M-PESA fees</span>
+        <span class="kpi-value" id="kpi-fees">0</span>
+      </div>
+    </section>
+
+    <!-- Two figures that have to be somewhere but do not deserve a tile each:
+         what moved without being spent, and how much is on file. -->
+    <p class="kpi-aside hint"><span class="num" id="kpi-transfers">0</span> moved or
+      repaid, not counted as spending &middot; <span class="num" id="kpi-count">0</span>
+      transactions on file</p>
+
+    <div class="card">
+      <h2>Where the money went</h2>
+      <div id="chart-categories" class="bars" role="list"></div>
+      <p id="transfers-note" class="hint note"></p>
+    </div>
+
+    <section class="rowgroup">
+      <h3>Needs you</h3>
+      <button class="navrow" type="button" data-go="triage" id="triage-card"><span class="navrow-t">Needs categorising</span><span id="triage-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="recon" id="recon-card"><span class="navrow-t">Account check</span><span id="recon-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+    </section>
+    <section class="rowgroup">
+      <h3>This month</h3>
+      <button class="navrow" type="button" data-go="month" id="month-card"><span class="navrow-t">Monthly report</span><span id="month-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="budget" id="budget-card"><span class="navrow-t">Budget</span><span id="budget-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="track" id="track-card"><span class="navrow-t">Track a budget line</span><span id="track-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="trend"><span class="navrow-t">Spending over time</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+    </section>
+    <section class="rowgroup">
+      <h3>Money</h3>
+      <button class="navrow" type="button" data-go="debts" id="debts-card"><span class="navrow-t">What I owe</span><span id="debts-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="fuliza" id="fuliza-card"><span class="navrow-t">Fuliza &amp; borrowing</span><span id="fuliza-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="balance" id="balance-card"><span class="navrow-t">Balance over time</span><span id="balance-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="recurring" id="recurring-card"><span class="navrow-t">Recurring payments</span><span id="recurring-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="refunds" id="refunds-card"><span class="navrow-t">Refunds</span><span id="refunds-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="merchants"><span class="navrow-t">Biggest merchants</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+    </section>
+    <section class="rowgroup">
+      <h3>Records</h3>
+      <button class="navrow" type="button" data-go="txns"><span class="navrow-t">All transactions</span><span id="txn-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="basket" id="basket-card"><span class="navrow-t">Shopping receipts</span><span id="basket-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+    </section>
+    <section class="rowgroup">
+      <h3>Set up</h3>
+      <button class="navrow" type="button" data-go="intake"><span class="navrow-t">Add transactions</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="people"><span class="navrow-t">People &amp; name rules</span><span id="people-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="cats"><span class="navrow-t">Categories</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="settings" id="settings-card"><span class="navrow-t">Who you are</span><span id="settings-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="navrow" type="button" data-go="data"><span class="navrow-t">Data &amp; sync</span><span id="data-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+    </section>
   </section>
 
-  <details class="card" data-panel="intake">
-    <summary><h2>Add transactions</h2></summary>
-    <div class="intake">
+  <section class="view" data-view="triage" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Needs categorising</h1>
+    </header>
+    <div class="card">
+<p class="hint">Nothing is guessed here — these are names the app has no rule for, biggest first. Pick a category and it becomes a permanent rule for that name, applied to every past and future transaction. Work down from the top; the first few are usually most of the money.</p>
+    <div id="triage"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="recon" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Account check — is the same money counted twice?</h1>
+    </header>
+    <div class="card">
+<p class="hint">Money moving between your bank and M-PESA appears in both statements. Each pair below was matched, so it is counted once, not twice.</p>
+    <div id="recon"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="month" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Monthly report</h1>
+    </header>
+    <div class="card">
+<div class="month-pick">
+      <label class="hint" for="month-sel">Month</label>
+      <select id="month-sel" aria-label="Month to report on"></select>
+      <span id="month-vs" class="hint"></span>
+    </div>
+    <div id="month-report"></div>
+    <div class="row"><button id="btn-export-month" class="ghost">Export this month (CSV)</button><button id="btn-print" class="ghost">Printable report</button></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="budget" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Budget</h1>
+    </header>
+    <div class="card">
+<p class="hint">From your wealth tracker, against the month selected above. Edit any figure. Categories a budget doesn't claim are counted separately — a budget you meet by not knowing where money went isn't worth much.</p>
+    <div id="budget"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="track" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Track a budget line</h1>
+    </header>
+    <div class="card">
+<p class="hint">One line, every month — so you can see whether groceries are creeping up rather than only how last month compared with the one before. Counts the same way the budget does: splits land on each category, and a payment you assigned to another month counts there.</p>
+    <div class="month-pick">
+      <label class="hint" for="track-sel">Show</label>
+      <select id="track-sel" aria-label="Budget line or category to track"></select>
+    </div>
+    <div id="track"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="trend" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Spending over time</h1>
+    </header>
+    <div class="card">
+<div id="chart-trend" class="trend"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="debts" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>What I owe</h1>
+    </header>
+    <div class="card">
+<p class="hint">Balances from your wealth tracker, kept current from the imported statements. <strong>Revolving</strong> lines (Zenka, M-Shwari, KCB) can go up as well as down — repaying isn't the same as clearing. Items nothing can match are marked; record those payments by hand.</p>
+    <div id="debts"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="fuliza" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Fuliza &amp; borrowing</h1>
+    </header>
+    <div class="card">
+<div id="fuliza"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="balance" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Balance over time</h1>
+    </header>
+    <div class="card">
+<div class="month-pick">
+      <select id="bal-acct" aria-label="Account"></select>
+      <span class="hint">Closing balance each day, straight from the statements.</span>
+    </div>
+    <div id="chart-balance" class="trend"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="recurring" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Recurring payments</h1>
+    </header>
+    <div class="card">
+<p class="hint">Payments that repeat on a schedule — what you're committed to before deciding anything. Also where forgotten spending hides.</p>
+    <div id="recurring"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="refunds" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Refunds</h1>
+    </header>
+    <div class="card">
+<p class="hint">Money coming back. Point a refund at the payment it repays and it reduces <em>that</em> cost instead of counting as income — 3,000 paid and 2,500 returned cost you 500, and that's the only figure that's true.</p>
+    <div id="refunds"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="merchants" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Biggest merchants</h1>
+    </header>
+    <div class="card">
+<div id="table-merchants"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="txns" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>All transactions</h1>
+    </header>
+    <div class="card">
+<p class="hint">Change a category and the app remembers that merchant from then on. Click a column heading to sort.</p>
+    <div class="filters">
+      <input id="search" type="search" placeholder="Search name, merchant or receipt…" aria-label="Search transactions">
+      <select id="cat-filter" aria-label="Filter by category"><option value="all">All categories</option></select>
+      <select id="dir-filter" aria-label="Filter by direction">
+        <option value="all">In &amp; out</option>
+        <option value="Out">Out only</option>
+        <option value="In">In only</option>
+      </select>
+      <select id="acct-filter" aria-label="Filter by account"><option value="all">All accounts</option></select>
+      <span id="filter-count" class="hint"></span>
+    </div>
+    <div id="drill-chip" class="drill-chip" hidden></div>
+    <div id="table-txns" class="scroll"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="basket" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Shopping receipts</h1>
+    </header>
+    <div class="card">
+<p class="hint">A statement line says what went to the supermarket. It cannot say what that bought. Receipts scanned in <a href="basket.html">Basket</a> appear here by themselves, each matched to the payment that settled it &mdash; so a grocery total becomes a list you can search. The box below is for a list copied from another device.</p>
+    <textarea id="basket-paste" rows="2" placeholder="Paste from Basket Budget here"></textarea>
+    <div class="row">
+      <button id="basket-import" type="button">Import receipts</button>
+      <span id="basket-note" class="hint"></span>
+    </div>
+    <label class="hint" for="basket-search">What have I paid for this?</label>
+    <input id="basket-search" type="search" placeholder="e.g. flour, milk, soap">
+    <div id="basket-search-out"></div>
+    <div id="basket"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="intake" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Add transactions</h1>
+    </header>
+    <div class="card">
+<div class="intake">
     <div class="intake-col" id="sms-col" hidden>
       <h3>Read this phone's messages</h3>
       <p class="hint">M-PESA's own messages, straight from the inbox &mdash; no statement, no
@@ -85,157 +410,20 @@
       </label>
     </div>
     </div>
-  </details>
-
-  <div id="unparsed" class="unparsed"></div>
-
-  <div class="rangerow">
-    <label class="hint" for="range">Showing</label>
-    <select id="range" aria-label="Time range">
-      <option value="all">All time</option>
-      <option value="7">Last 7 days</option>
-      <option value="30">Last 30 days</option>
-      <option value="90">Last 90 days</option>
-    </select>
-  </div>
-
-  <section class="kpis">
-    <div class="kpi lead">
-      <span class="kpi-label">Spent</span>
-      <span class="kpi-value" id="kpi-spend">0</span>
-      <span class="kpi-note">goods, services &amp; fees</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-label">Received</span>
-      <span class="kpi-value" id="kpi-income">0</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-label">Net</span>
-      <span class="kpi-value" id="kpi-net">0</span>
-      <span class="kpi-note">received − spent</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-label">M-PESA fees</span>
-      <span class="kpi-value" id="kpi-fees">0</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-label">Moved / repaid</span>
-      <span class="kpi-value" id="kpi-transfers">0</span>
-      <span class="kpi-note">not counted as spending</span>
-    </div>
-    <div class="kpi">
-      <span class="kpi-label">Transactions</span>
-      <span class="kpi-value" id="kpi-count">0</span>
     </div>
   </section>
 
-  <section class="grid-2">
-    <details class="card" data-panel="categories-chart" open>
-      <summary><h2>Where the money went</h2></summary>
-      <div id="chart-categories" class="bars" role="list"></div>
-      <p id="transfers-note" class="hint note"></p>
-    </details>
-
-    <details class="card" data-panel="trend" open>
-      <summary><h2>Spending over time</h2></summary>
-      <div id="chart-trend" class="trend"></div>
-    </details>
-  </section>
-
-  <details id="month-card" class="card" data-panel="month" open hidden>
-    <summary><h2>Monthly report</h2><span id="month-badge" class="badge"></span></summary>
-    <div class="month-pick">
-      <label class="hint" for="month-sel">Month</label>
-      <select id="month-sel" aria-label="Month to report on"></select>
-      <span id="month-vs" class="hint"></span>
-    </div>
-    <div id="month-report"></div>
-    <div class="row"><button id="btn-export-month" class="ghost">Export this month (CSV)</button><button id="btn-print" class="ghost">Printable report</button></div>
-  </details>
-
-  <details id="budget-card" class="card" data-panel="budget" hidden>
-    <summary><h2>Budget</h2><span id="budget-badge" class="badge"></span></summary>
-    <p class="hint">From your wealth tracker, against the month selected above. Edit any figure. Categories a budget doesn't claim are counted separately — a budget you meet by not knowing where money went isn't worth much.</p>
-    <div id="budget"></div>
-  </details>
-
-  <details id="track-card" class="card" data-panel="track" hidden>
-    <summary><h2>Track a budget line</h2><span id="track-badge" class="badge"></span></summary>
-    <p class="hint">One line, every month — so you can see whether groceries are creeping up rather than only how last month compared with the one before. Counts the same way the budget does: splits land on each category, and a payment you assigned to another month counts there.</p>
-    <div class="month-pick">
-      <label class="hint" for="track-sel">Show</label>
-      <select id="track-sel" aria-label="Budget line or category to track"></select>
-    </div>
-    <div id="track"></div>
-  </details>
-
-  <details id="refunds-card" class="card" data-panel="refunds" hidden>
-    <summary><h2>Refunds</h2><span id="refunds-badge" class="badge"></span></summary>
-    <p class="hint">Money coming back. Point a refund at the payment it repays and it reduces <em>that</em> cost instead of counting as income — 3,000 paid and 2,500 returned cost you 500, and that's the only figure that's true.</p>
-    <div id="refunds"></div>
-  </details>
-
-  <details id="basket-card" class="card" data-panel="basket">
-    <summary><h2>Shopping receipts</h2><span id="basket-badge" class="badge"></span></summary>
-    <p class="hint">A statement line says what went to the supermarket. It cannot say what that bought. Receipts scanned in <a href="basket.html">Basket</a> appear here by themselves, each matched to the payment that settled it &mdash; so a grocery total becomes a list you can search. The box below is for a list copied from another device.</p>
-    <textarea id="basket-paste" rows="2" placeholder="Paste from Basket Budget here"></textarea>
-    <div class="row">
-      <button id="basket-import" type="button">Import receipts</button>
-      <span id="basket-note" class="hint"></span>
-    </div>
-    <label class="hint" for="basket-search">What have I paid for this?</label>
-    <input id="basket-search" type="search" placeholder="e.g. flour, milk, soap">
-    <div id="basket-search-out"></div>
-    <div id="basket"></div>
-  </details>
-
-  <details id="recurring-card" class="card" data-panel="recurring" hidden>
-    <summary><h2>Recurring payments</h2><span id="recurring-badge" class="badge"></span></summary>
-    <p class="hint">Payments that repeat on a schedule — what you're committed to before deciding anything. Also where forgotten spending hides.</p>
-    <div id="recurring"></div>
-  </details>
-
-  <details id="balance-card" class="card" data-panel="balance" hidden>
-    <summary><h2>Balance over time</h2><span id="balance-badge" class="badge"></span></summary>
-    <div class="month-pick">
-      <select id="bal-acct" aria-label="Account"></select>
-      <span class="hint">Closing balance each day, straight from the statements.</span>
-    </div>
-    <div id="chart-balance" class="trend"></div>
-  </details>
-
-  <details id="fuliza-card" class="card" data-panel="fuliza" hidden>
-    <summary><h2>Fuliza &amp; borrowing</h2><span id="fuliza-badge" class="badge"></span></summary>
-    <div id="fuliza"></div>
-  </details>
-
-  <details id="debts-card" class="card" data-panel="debts" open>
-    <summary><h2>What I owe</h2><span id="debts-badge" class="badge"></span></summary>
-    <p class="hint">Balances from your wealth tracker, kept current from the imported statements. <strong>Revolving</strong> lines (Zenka, M-Shwari, KCB) can go up as well as down — repaying isn't the same as clearing. Items nothing can match are marked; record those payments by hand.</p>
-    <div id="debts"></div>
-  </details>
-
-  <details id="triage-card" class="card" data-panel="triage" open hidden>
-    <summary><h2>Needs categorising</h2><span id="triage-badge" class="badge"></span></summary>
-    <p class="hint">Nothing is guessed here — these are names the app has no rule for, biggest first. Pick a category and it becomes a permanent rule for that name, applied to every past and future transaction. Work down from the top; the first few are usually most of the money.</p>
-    <div id="triage"></div>
-  </details>
-
-  <details id="recon-card" class="card" data-panel="recon" hidden>
-    <summary><h2>Account check — is the same money counted twice?</h2><span id="recon-badge" class="badge"></span></summary>
-    <p class="hint">Money moving between your bank and M-PESA appears in both statements. Each pair below was matched, so it is counted once, not twice.</p>
-    <div id="recon"></div>
-  </details>
-
-  <section class="grid-2">
-    <details class="card" data-panel="merchants">
-      <summary><h2>Biggest merchants</h2></summary>
-      <div id="table-merchants"></div>
-    </details>
-
-    <details class="card" data-panel="people">
-      <summary><h2>People &amp; name rules</h2><span id="people-badge" class="badge"></span></summary>
-      <p class="hint">Type a name and pick where it belongs — every transaction containing that name follows, past and future. Use a surname or first name; M-PESA writes the same person's number differently in an SMS and a statement, but the name stays put. Tag someone <strong>Money Lent</strong> to see what they still owe you.</p>
+  <section class="view" data-view="people" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>People &amp; name rules</h1>
+    </header>
+    <div class="card">
+<p class="hint">Type a name and pick where it belongs — every transaction containing that name follows, past and future. Use a surname or first name; M-PESA writes the same person's number differently in an SMS and a statement, but the name stays put. Tag someone <strong>Money Lent</strong> to see what they still owe you.</p>
       <div class="namerule-add">
         <input id="nr-name" type="text" placeholder="e.g. frank" aria-label="Name to match">
         <select id="nr-cat" aria-label="Category for this name"></select>
@@ -243,11 +431,20 @@
       </div>
       <p id="nr-preview" class="hint"></p>
       <div id="nr-list"></div>
-    </details>
+    </div>
+  </section>
 
-    <details class="card" data-panel="cats">
-      <summary><h2>Categories</h2></summary>
-      <p class="hint">Add your own — Gas, Pets, School fees, whatever you track. They appear in every dropdown straight away.</p>
+  <section class="view" data-view="cats" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Categories</h1>
+    </header>
+    <div class="card">
+<p class="hint">Add your own — Gas, Pets, School fees, whatever you track. They appear in every dropdown straight away.</p>
       <div class="namerule-add">
         <input id="cat-name" type="text" placeholder="e.g. Gas" aria-label="New category name">
         <select id="cat-class" aria-label="How it counts">
@@ -259,11 +456,20 @@
         <button id="cat-add" class="primary">Add</button>
       </div>
       <div id="cat-list"></div>
-    </details>
+    </div>
+  </section>
 
-    <details id="settings-card" class="card" data-panel="settings">
-      <summary><h2>Settings — who you are</h2><span id="settings-badge" class="badge"></span></summary>
-      <p class="hint">Your own numbers, kept in this browser and never in the app's code. The app needs them to tell a top-up to <em>your own</em> wallet apart from a payment to someone else — without them, money moving between your accounts gets counted twice.</p>
+  <section class="view" data-view="settings" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Settings — who you are</h1>
+    </header>
+    <div class="card">
+<p class="hint">Your own numbers, kept in this browser and never in the app's code. The app needs them to tell a top-up to <em>your own</em> wallet apart from a payment to someone else — without them, money moving between your accounts gets counted twice.</p>
       <div class="set-grid">
         <label class="set-row">
           <span>What the app should call you</span>
@@ -296,11 +502,20 @@
         <button id="ppl-add" class="primary">Add</button>
       </div>
       <div id="ppl-list"></div>
-    </details>
+    </div>
+  </section>
 
-    <details class="card" data-panel="data">
-      <summary><h2>Data &amp; sync</h2><span id="data-badge" class="badge"></span></summary>
-      <p class="hint">Everything lives in this browser's storage — this device only. Clearing browser data wipes it, so back up now and then.</p>
+  <section class="view" data-view="data" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Data &amp; sync</h1>
+    </header>
+    <div class="card">
+<p class="hint">Everything lives in this browser's storage — this device only. Clearing browser data wipes it, so back up now and then.</p>
 
       <h3 class="debt-group">Moving between phone and laptop</h3>
       <p class="hint">Send a backup from one device and restore it on the other. Everything is keyed by M-PESA receipt, so importing can't double-count and re-importing the same file does nothing. Do it both ways and both devices end up with everything.</p>
@@ -327,26 +542,8 @@
       <div class="row">
         <button id="btn-reset" class="danger">Reset everything</button>
       </div>
-    </details>
-  </section>
-
-  <details class="card" data-panel="txns">
-    <summary><h2>All transactions</h2><span id="txn-badge" class="badge"></span></summary>
-    <p class="hint">Change a category and the app remembers that merchant from then on. Click a column heading to sort.</p>
-    <div class="filters">
-      <input id="search" type="search" placeholder="Search name, merchant or receipt…" aria-label="Search transactions">
-      <select id="cat-filter" aria-label="Filter by category"><option value="all">All categories</option></select>
-      <select id="dir-filter" aria-label="Filter by direction">
-        <option value="all">In &amp; out</option>
-        <option value="Out">Out only</option>
-        <option value="In">In only</option>
-      </select>
-      <select id="acct-filter" aria-label="Filter by account"><option value="all">All accounts</option></select>
-      <span id="filter-count" class="hint"></span>
     </div>
-    <div id="drill-chip" class="drill-chip" hidden></div>
-    <div id="table-txns" class="scroll"></div>
-  </details>
+  </section>
 </main>
 
 <nav class="tabs">
