@@ -944,17 +944,31 @@ tr.is-stale { opacity: .55; }
   color: var(--text-secondary); font-size: 11.5px; line-height: 1.5;
 }
 
+/* It sits ABOVE the tab bar, not on it. It used to share the bottom 24px with
+   the bar and was 10% white over whatever happened to be behind - which on a
+   dark page, over a blurred bar, is a smear. It is its own surface now, with
+   the bar's own blur, and it wraps as a rounded card rather than stretching a
+   pill around three lines of text. */
 .toast {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(14px);
-  background: var(--surface-3); color: var(--text-primary);
-  border: 1px solid var(--border-strong);
-  padding: 11px 18px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  position: fixed; left: 50%; transform: translateX(-50%) translateY(14px);
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  width: max-content; max-width: min(420px, calc(100vw - 32px));
+  /* Opaque, and built from the palette rather than a new colour: the page's own
+     background underneath, the card tint laid over it. A translucent panel is
+     fine for the tab bar, which sits over blank page; a line of text with a
+     transaction list showing through it is not readable at all. */
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--card-3), var(--card-3)), linear-gradient(var(--card-3), var(--card-3));
+  color: var(--ink);
+  border: 1px solid var(--card-line-strong);
+  padding: 12px 17px; border-radius: 16px; text-align: center;
+  font-size: 13.5px; font-weight: 500; line-height: 1.45;
   opacity: 0; pointer-events: none;
   transition: opacity .22s var(--ease), transform .22s var(--ease);
-  z-index: 60; box-shadow: var(--shadow-2);
+  z-index: 60; box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.warn { background: var(--critical); border-color: var(--critical); color: #fff; }
+.toast.warn { background: var(--bad); border-color: var(--bad); color: #fff; }
 
 /* ── Phone ───────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -1069,7 +1083,7 @@ tr.is-stale { opacity: .55; }
 .hero {
   border-radius: 20px; padding: 20px; background: var(--hero); color: var(--hero-ink);
   border: 1px solid var(--hero-line);
-  backdrop-filter: var(--hero-blur); -webkit-backdrop-filter: var(--hero-blur);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
 }
 .hero-top {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
