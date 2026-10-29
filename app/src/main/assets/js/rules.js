@@ -88,7 +88,7 @@ export const CATEGORIES = {
 // so those two can never disagree — a name missing here would otherwise be counted as
 // income by one and offered as a loan by the other.
 export const LENDER_RE =
-  /ZENKA|M-?Shwari|M-PESA Overdraw|M-PESA Overdraft|Fuliza|H-\s?Fund|TALA|BRANCH|KCB M-PESA|\bKORO\b|TIMIZA|MOKASH|ZASH|OKOLEA|MFANISI/i;
+  /ZENKA|M-?Shwari|M-PESA Overdraw|M-PESA Overdraft|Fuliza|H-\s?Fund|HUSTLER|TALA|BRANCH|KCB M-PESA|\bKORO\b|TIMIZA|MOKASH|ZASH|OKOLEA|MFANISI/i;
 
 // Ordered — first match wins. Built from the merchants actually present in the
 // June 2026 data; extend by correcting a transaction in the UI, which appends here.
@@ -129,6 +129,12 @@ const BUILT_IN = [
   // name here it falls through to the "inbound = Income" rule and inflates earnings.
   { match: LENDER_RE, category: 'Loans & Credit' },
   { type: /^(Fuliza|Loan Repayment|Loan Disbursement|Overdraft Credit)$/i, category: 'Loans & Credit' },
+  // "Ksh X has been credited to your M-PESA account" is how every lender pays out.
+  // It could in principle be something else, but this rule sits below all the named
+  // ones above, so by the time a credit reaches here nobody has recognised it — and
+  // calling an unknown credit borrowing understates earnings, while calling it
+  // income overstates them. Understating is the one that cannot flatter.
+  { type: /^Credited$/i, category: 'Loans & Credit' },
 
   // Savings & investment. Matched on name so both directions land here — money in
   // from a fund is a withdrawal of your own capital, not income. Sits above the
@@ -221,6 +227,11 @@ const BUILT_IN = [
 
   // Cash out at an agent
   { type: /^Withdrawal$/i, category: 'Cash Withdrawal' },
+
+  // Cash IN at an agent. Not income: it is money you already had, in your hand,
+  // moving into the wallet — and it is very often the cash you withdrew earlier
+  // going back in. Counting it as money received would book the same money twice.
+  { type: /^Cash Deposit$/i, category: 'Internal Transfer' },
 
   // Government & statutory
   { match: /COUNTY GOVERNMENT|KRA|NHIF|SHA|NSSF|e-?CITIZEN|NTSA|REVENUE|CREDIT REFERENCE|METROPOL/i, category: 'Government & Fees' },

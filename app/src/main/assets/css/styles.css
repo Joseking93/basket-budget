@@ -607,6 +607,24 @@ tr.is-stale { opacity: .55; }
 }
 .unparsed pre { white-space: pre-wrap; margin: 6px 0 0; color: var(--text-secondary); }
 
+/* Closed by default. What could not be read is worth keeping honest about, but it
+   is not what you opened the app for, so it states the count and stays out of the
+   way until you ask. */
+.unread > summary { cursor: pointer; list-style: none; }
+.unread > summary::-webkit-details-marker { display: none; }
+.unread > summary::after { content: ' ▾'; color: var(--muted); }
+.unread[open] > summary::after { content: ' ▴'; }
+.unread-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.unread-list li {
+  display: flex; gap: 10px; align-items: flex-start;
+  border-top: 1px solid var(--border); padding-top: 8px;
+}
+.unread-n { flex: none; font-weight: 700; color: var(--warning); min-width: 42px; }
+.unread-list pre {
+  margin: 0; white-space: pre-wrap; word-break: break-word;
+  color: var(--text-secondary); font-size: 11.5px; line-height: 1.5;
+}
+
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(14px);
   background: var(--surface-3); color: var(--text-primary);
@@ -637,7 +655,12 @@ tr.is-stale { opacity: .55; }
   }
   .namerule-add button, .filters button { width: 100%; }
   #filter-count { margin-left: 0; }
-  .scroll, #table-merchants, #recurring, #budget, #refunds, #triage, #track { overflow-x: auto; }
+  /* Every box that can hold a 520px table. One missing name here (#month-report
+     was missing) is enough to make the WHOLE PAGE scroll sideways on a phone,
+     because the table pushes past the card instead of scrolling inside it. */
+  .scroll, #table-merchants, #recurring, #budget, #refunds, #triage, #track,
+  #month-report, #fuliza, #debts, #recon, #basket, #basket-search-out,
+  #nr-list, #cat-list { overflow-x: auto; }
   .txns, .mini { min-width: 520px; }
   .bar-row { grid-template-columns: 100px 1fr 78px; gap: 8px; }
   .bar-label { font-size: 11px; }

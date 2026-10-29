@@ -53,17 +53,9 @@
     </a>
   </section>
 
-  <details class="card" data-panel="intake" open>
+  <details class="card" data-panel="intake">
     <summary><h2>Add transactions</h2></summary>
     <div class="intake">
-    <div class="intake-col">
-      <h3>Paste M-PESA messages</h3>
-      <p class="hint">One or many, run together is fine. Duplicates are ignored automatically.</p>
-      <textarea id="sms-input" rows="4" placeholder="UFT8N9M0TA Confirmed. Ksh257.00 sent to MOJA EXPRESSWAY CO. LTD for account TCSYHGZ5Z7GXMGT9 on 29/6/26 at 3:35 PM. New M-PESA balance is Ksh6,333.46. Transaction cost, Ksh5.00."></textarea>
-      <button id="btn-add" class="primary">Add transactions</button>
-      <span class="hint kbd">or Ctrl+Enter</span>
-    </div>
-
     <div class="intake-col" id="sms-col" hidden>
       <h3>Read this phone's messages</h3>
       <p class="hint">M-PESA's own messages, straight from the inbox &mdash; no statement, no
@@ -73,6 +65,14 @@
         <button id="btn-sms-all" class="ghost">Read everything</button>
       </div>
       <span id="sms-note" class="hint"></span>
+    </div>
+
+    <div class="intake-col">
+      <h3>Paste M-PESA messages</h3>
+      <p class="hint">One or many, run together is fine. Duplicates are ignored automatically.</p>
+      <textarea id="sms-input" rows="4" placeholder="UFT8N9M0TA Confirmed. Ksh257.00 sent to MOJA EXPRESSWAY CO. LTD for account TCSYHGZ5Z7GXMGT9 on 29/6/26 at 3:35 PM. New M-PESA balance is Ksh6,333.46. Transaction cost, Ksh5.00."></textarea>
+      <button id="btn-add" class="primary">Add transactions</button>
+      <span class="hint kbd">or Ctrl+Enter</span>
     </div>
 
     <div class="intake-col">
@@ -175,7 +175,7 @@
     <div id="refunds"></div>
   </details>
 
-  <details id="basket-card" class="card" data-panel="basket" open>
+  <details id="basket-card" class="card" data-panel="basket">
     <summary><h2>Shopping receipts</h2><span id="basket-badge" class="badge"></span></summary>
     <p class="hint">A statement line says what went to the supermarket. It cannot say what that bought. Receipts scanned in <a href="basket.html">Basket</a> appear here by themselves, each matched to the payment that settled it &mdash; so a grocery total becomes a list you can search. The box below is for a list copied from another device.</p>
     <textarea id="basket-paste" rows="2" placeholder="Paste from Basket Budget here"></textarea>
@@ -330,7 +330,7 @@
     </details>
   </section>
 
-  <details class="card" data-panel="txns" open>
+  <details class="card" data-panel="txns">
     <summary><h2>All transactions</h2><span id="txn-badge" class="badge"></span></summary>
     <p class="hint">Change a category and the app remembers that merchant from then on. Click a column heading to sort.</p>
     <div class="filters">

@@ -50,8 +50,15 @@ object SmsReader {
                 // Balance enquiries and adverts come from the same sender and
                 // would only land in the page's "could not read" pile.
                 if (text.isNotEmpty() && LOOKS_LIKE_TRANSACTION.containsMatchIn(text)) {
-                    bodies.add(text)
                     val at = cursor.getLong(date)
+                    // Several M-PESA messages carry no date of their own - a Fuliza
+                    // repayment is the common one, and there are hundreds of those.
+                    // The page cannot place a transaction it cannot date, so each
+                    // body goes over with the moment the message arrived, which is
+                    // within seconds of when it happened. The parser reads the
+                    // stamp, uses it only where the text gives no date, and strips
+                    // it before storing anything.
+                    bodies.add("#at " + at + "\n" + text)
                     if (at > newest) newest = at
                 }
             }

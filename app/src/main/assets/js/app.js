@@ -1,4 +1,4 @@
-import { parseMessages } from './parser.js';
+import { parseMessages, groupUnparsed } from './parser.js';
 import {
   categorise,
   CLASSES,
@@ -2174,6 +2174,10 @@ function wirePanels() {
   document.querySelectorAll('details.card[data-panel]').forEach((d) => {
     const key = d.dataset.panel;
     if (key in saved) d.open = saved[key];
+    // An empty app is all intake and nothing else, so that one panel opens itself
+    // the first time. Once there is anything on file it closes, because reaching
+    // the figures should not mean scrolling past a textarea and a file picker.
+    else if (key === 'intake' && !store.allTransactions().length) d.open = true;
     d.addEventListener('toggle', () => {
       saved[key] = d.open;
       try {
@@ -2200,13 +2204,46 @@ function toast(msg, kind = 'ok') {
   setTimeout(() => (el.className = 'toast'), 4000);
 }
 
+/**
+ * Shows what could not be read, grouped by wording.
+ *
+ * It used to print every failed message in full, one after another. With an inbox
+ * behind it that is several hundred blocks of monospace on the home page, which
+ * tells you nothing you can act on and buries everything below it. The same
+ * failures grouped by shape are five or six lines, and the count is the part that
+ * matters: it says which wording is worth teaching the parser next.
+ */
+function showUnparsed(list, ignored = 0) {
+  const box = $('#unparsed');
+  if (!box) return;
+  if (!list.length) {
+    box.innerHTML = ignored
+      ? `<p class="hint">${ignored} message${ignored === 1 ? ' was a notice' : 's were notices'} &mdash; balance checks and the like, not transactions.</p>`
+      : '';
+    return;
+  }
+  const esc = (t) => String(t).replace(/[<>&]/g, '');
+  box.innerHTML = `
+    <details class="unread">
+      <summary><b>${list.length} message${list.length === 1 ? '' : 's'} not recognised</b> &mdash; nothing was dropped silently</summary>
+      <p class="hint">Grouped by wording. The counts say which one is worth teaching the app next.</p>
+      <ul class="unread-list">
+        ${groupUnparsed(list)
+          .map((g) => `<li><span class="unread-n">${g.count}&times;</span><pre>${esc(g.sample).slice(0, 220)}</pre></li>`)
+          .join('')}
+      </ul>
+      ${ignored ? `<p class="hint">${ignored} more ${ignored === 1 ? 'was a notice' : 'were notices'} &mdash; balance checks and the like, not transactions.</p>` : ''}
+    </details>`;
+}
+
 function handlePaste() {
   const raw = $('#sms-input').value;
   if (!raw.trim()) return;
 
-  const { transactions, unparsed } = parseMessages(raw);
+  const { transactions, unparsed, ignored } = parseMessages(raw);
   if (!transactions.length) {
     toast('Could not read any M-PESA messages in that text.', 'warn');
+    showUnparsed(unparsed, ignored);
     return;
   }
   const { added, duplicate } = store.addTransactions(transactions);
@@ -2218,12 +2255,7 @@ function handlePaste() {
   if (unparsed.length) msg += ` ${unparsed.length} message(s) not recognised.`;
   toast(msg, unparsed.length ? 'warn' : 'ok');
 
-  const box = $('#unparsed');
-  box.innerHTML = unparsed.length
-    ? `<strong>Not recognised — nothing was dropped silently:</strong>${unparsed
-        .map((u) => `<pre>${u.replace(/[<>&]/g, '')}</pre>`)
-        .join('')}`
-    : '';
+  showUnparsed(unparsed, ignored);
 }
 
 async function handlePDF(file) {
@@ -2907,14 +2939,15 @@ function wireSms() {
 
   // The inbox arrives in batches, so the tally is kept across them and the
   // page is only re-rendered once at the end.
-  let tally = { added: 0, duplicate: 0, unparsed: [] };
+  let tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };
   window.onSmsBatch = (text, done, found) => {
     if (text) {
-      const { transactions, unparsed } = parseMessages(text);
+      const { transactions, unparsed, ignored } = parseMessages(text);
       const counts = store.addTransactions(transactions);
       tally.added += counts.added;
       tally.duplicate += counts.duplicate;
       tally.unparsed.push(...unparsed);
+      tally.ignored += ignored;
     }
     if (!done) {
       note.textContent = `Reading ${found} messages… ${tally.added} new so far.`;
@@ -2923,7 +2956,7 @@ function wireSms() {
 
     if (!found) {
       note.textContent = 'No new M-PESA messages in this phone\'s inbox.';
-      tally = { added: 0, duplicate: 0, unparsed: [] };
+      tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };
       return;
     }
     render();
@@ -2934,12 +2967,8 @@ function wireSms() {
     note.textContent = msg;
     toast(msg, tally.unparsed.length ? 'warn' : 'ok');
     // Nothing is dropped silently, same as the paste box.
-    $('#unparsed').innerHTML = tally.unparsed.length
-      ? `<strong>Not recognised — nothing was dropped silently:</strong>${tally.unparsed
-          .map((u) => `<pre>${u.replace(/[<>&]/g, '')}</pre>`)
-          .join('')}`
-      : '';
-    tally = { added: 0, duplicate: 0, unparsed: [] };
+    showUnparsed(tally.unparsed, tally.ignored);
+    tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };
   };
 }
 
