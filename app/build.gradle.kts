@@ -26,9 +26,24 @@ android {
         buildConfig = true
     }
 
+    // Supplied by the release workflow; absent on this machine, where only
+    // debug builds are made.
+    val keystore = System.getenv("BB_KEYSTORE")
+    signingConfigs {
+        if (keystore != null) {
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("BB_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("BB_KEY_ALIAS") ?: "basketbudget"
+                keyPassword = System.getenv("BB_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
