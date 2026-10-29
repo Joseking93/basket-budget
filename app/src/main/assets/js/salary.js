@@ -110,7 +110,17 @@ export function monthResolver(txns) {
       // anyway. A real payday landing later just replaces this guess.
       return addMonths(cycles[i].month, wholeMonthsSince(cycles[i].start, d));
     }
-    return d.slice(0, 7);
+    // Older than every payday we can see. Falling back to the calendar month
+    // here is what made the home screen claim 612,370 spent this month beside a
+    // chip saying 51,354: a cycle running 28 Oct - 27 Nov is LABELLED October,
+    // so every transaction from the 1st to the 27th fell back to "October" too
+    // and joined a month it had nothing to do with. The convention is extended
+    // backwards instead, using the same payday and the same labelling, so the
+    // two can never disagree.
+    if (!cycles.length) return d.slice(0, 7);
+    const payDay = +cycles[0].start.slice(8, 10);
+    const startYM = +d.slice(8, 10) >= payDay ? d.slice(0, 7) : addMonths(d.slice(0, 7), -1);
+    return monthAPayFunds(`${startYM}-${String(payDay).padStart(2, '0')}`);
   };
 }
 

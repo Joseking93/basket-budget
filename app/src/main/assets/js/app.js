@@ -2997,9 +2997,12 @@ function renderHome(all) {
     stateEl.classList.remove('over');
   }
 
-  // The three chips are this cycle, not the selected range - the gauge above
-  // them is this cycle, and two different periods in one card is a trap.
-  const cycle = all.filter((t) => t.date && t.date >= from && t.date <= `${to}T23:59:59`);
+  // The three chips use the same month ASSIGNMENT as the gauge above them, not
+  // a date range of their own. Two definitions of "this month" on one card is
+  // how it came to show 612,370 and 51,354 at the same time, both labelled
+  // spent, both honest about a different question.
+  const monthOf = monthResolver(all);
+  const cycle = all.filter((t) => monthOf(t) === month);
   const cs = viz.summarise(cycle);
   $('#chip-spent').textContent = viz.fmt(cs.realSpend);
   $('#chip-in').textContent = viz.fmt(cs.income);
