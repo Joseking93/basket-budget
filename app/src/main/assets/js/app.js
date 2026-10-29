@@ -21,7 +21,7 @@ import { findRecurring, committedMonthly } from './recurring.js';
 import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
-import { isConfigured, norm as normNumber } from './config.js';
+import { isConfigured, norm as normNumber, ASSET_BUILD } from './config.js';
 
 const rampFor = (i, n) => viz.rampAt(i, n);
 
@@ -3166,7 +3166,11 @@ function wireUpdates() {
   const msg = $('#update-msg');
   const install = $('#btn-install');
   try {
-    msg.textContent = `Version ${bridge.appVersion()}.`;
+    const app = bridge.appVersion();
+    msg.textContent =
+      app === ASSET_BUILD
+        ? `Version ${app}.`
+        : `Version ${app}, but these pages are from ${ASSET_BUILD}. Close the app completely and open it again.`;
   } catch (e) {
     msg.textContent = '';
   }

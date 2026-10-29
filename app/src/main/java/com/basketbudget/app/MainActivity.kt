@@ -22,6 +22,7 @@ import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -207,6 +208,11 @@ class MainActivity : ComponentActivity() {
             // The page is entirely local; nothing should ever load off a network.
             blockNetworkLoads = true
             blockNetworkImage = true
+            // ...which also means there is nothing to save by caching it. Every
+            // asset keeps the same URL from one version of the app to the next,
+            // so a cached copy outlives the update that replaced it - which is
+            // how a parser fix shipped three times and never reached the phone.
+            cacheMode = WebSettings.LOAD_NO_CACHE
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
             // OFF. The page carries both themes and switches them itself; left
@@ -218,7 +224,15 @@ class MainActivity : ComponentActivity() {
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest,
-            ): WebResourceResponse? = assets.shouldInterceptRequest(request.url)
+            ): WebResourceResponse? =
+                assets.shouldInterceptRequest(request.url)?.also {
+                    // Said out loud as well as asked for: the response headers
+                    // are what a WebView honours when it decides to keep a copy.
+                    val headers = it.responseHeaders?.toMutableMap() ?: mutableMapOf()
+                    headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+                    headers["Pragma"] = "no-cache"
+                    it.responseHeaders = headers
+                }
 
             override fun shouldOverrideUrlLoading(
                 view: WebView,

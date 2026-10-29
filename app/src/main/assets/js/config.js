@@ -1,3 +1,12 @@
+/**
+ * Which build these PAGES are from, which is not always the same question as
+ * which build the app is from: the pages are cached, the app is not. Shown
+ * beside the app's own version in Data & sync, so the two disagreeing is
+ * something you can see rather than something you have to deduce from a bug
+ * that will not die.
+ */
+export const ASSET_BUILD = '5.3';
+
 // Who you are, across accounts — held at runtime, NOT written here.
 //
 // This file used to contain a real phone number, two real account numbers and a
