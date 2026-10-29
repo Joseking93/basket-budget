@@ -289,9 +289,9 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
   <ul id="list"></ul>
   <section class="xfer">
     <h2>Move your list</h2>
-    <p class="tip">Tap <b>Copy my list</b>, open the other app, paste into this box there, then tap <b>Load pasted list</b>.</p>
+    <p class="tip">Tap <b>Copy my list</b>, open the other app, paste into this box there, then tap <b>Load pasted list</b>. <b>Copy everything</b> takes your receipts too &mdash; keep that somewhere safe before changing phones or reinstalling.</p>
     <textarea id="code" rows="3" placeholder="Paste a copied list here"></textarea>
-    <div class="xbtns"><button type="button" class="ghost" id="copyBtn">Copy my list</button><button type="button" class="ghost" id="loadBtn">Load pasted list</button><button type="button" class="ghost" id="keepBtn">Save as a receipt</button></div>
+    <div class="xbtns"><button type="button" class="ghost" id="copyBtn">Copy my list</button><button type="button" class="ghost" id="loadBtn">Load pasted list</button><button type="button" class="ghost" id="keepBtn">Save as a receipt</button><button type="button" class="ghost" id="backupBtn">Copy everything</button></div>
     <p class="tip" id="xmsg" role="status"></p>
   </section>
   <section class="xfer" id="updateBox" hidden>
@@ -491,6 +491,25 @@ $('clear').onclick=()=>{
   state.items=[];armed=false;b.textContent='Clear list';b.classList.remove('confirm');save();render();
 };
 const msg=t=>{$('xmsg').textContent=t};
+function putOnClipboard(text,done){
+  const ta=$('code');
+  ta.value=text;
+  const sel=()=>{ta.focus();ta.select();try{document.execCommand('copy')}catch(e){}};
+  const viaAndroid=()=>{
+    if(bridge('copyToClipboard')){try{and().copyToClipboard(ta.value);done();return true}catch(e){}}
+    return false;
+  };
+  const fallback=()=>{if(!viaAndroid()){sel();msg('Text is selected in the box. Long-press it and tap Copy.')}};
+  try{navigator.clipboard.writeText(ta.value).then(done,fallback)}catch(e){fallback()}
+}
+$('backupBtn').onclick=()=>{
+  putOnClipboard('BASKET2:'+JSON.stringify({
+    budget:state.budget,
+    items:state.items.filter(i=>!i.ex),
+    receipts:receipts
+  }),()=>msg('Copied your basket and all '+receipts.length+
+    (receipts.length===1?' receipt':' receipts')+'. Paste it somewhere safe.'));
+};
 $('copyBtn').onclick=()=>{
   const ta=$('code');
   ta.value='BASKET1:'+JSON.stringify({budget:state.budget,items:state.items.filter(i=>!i.ex)});
@@ -510,13 +529,20 @@ $('copyBtn').onclick=()=>{
 $('loadBtn').onclick=()=>{
   try{
     let t=$('code').value.trim();
-    if(t.startsWith('BASKET1:'))t=t.slice(8);
+    if(t.startsWith('BASKET1:')||t.startsWith('BASKET2:'))t=t.slice(8);
     const d=JSON.parse(t);
     if(!Array.isArray(d.items))throw 0;
     const loaded=d.items.map(i=>({id:i.id||Date.now()+Math.random(),name:String(i.name||'Item'),size:+i.size||0,unit:i.unit||'pcs',price:+i.price||0,qty:Math.max(1,+i.qty||1)}));
     state={budget:(d.budget!=null?+d.budget:state.budget)||0,items:loaded};
     $('budget').value=state.budget;
     let note='Loaded '+loaded.length+' items.';
+    // A full backup brings the receipts back with it.
+    if(Array.isArray(d.receipts)){
+      receipts=d.receipts.filter(r=>r&&r.date&&Array.isArray(r.items));
+      receipts.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+      saveReceipts();renderReceipts();
+      note+=' Restored '+receipts.length+(receipts.length===1?' receipt.':' receipts.');
+    }
     // A pasted list can carry the day it was bought, and then it is kept as a
     // receipt too rather than only filling the basket.
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(d.date||''))){
