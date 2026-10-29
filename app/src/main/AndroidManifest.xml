@@ -5,9 +5,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <!-- ML Kit's manifest brings this in; the app never goes online, so it is
-         removed from the merged manifest. The text model is bundled in the APK. -->
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <!-- Used only by the update check, which runs when you tap it. Reading a
+         receipt is done entirely on the device by the bundled model. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"

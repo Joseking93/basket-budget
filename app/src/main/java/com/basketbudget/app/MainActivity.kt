@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
      * destroyed behind it, which used to lose the photo entirely.
      */
     private var pendingPhotoPath: String? = null
+    private var pendingUpdate: Updater.Release? = null
 
     private val takePicture =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
@@ -307,6 +308,47 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        /** What this build calls itself, for the update row. */
+        @JavascriptInterface
+        fun appVersion(): String = BuildConfig.VERSION_NAME
+
+        /** Asks GitHub whether there is a newer build. Only ever on request. */
+        @JavascriptInterface
+        fun checkUpdate() {
+            Thread {
+                val release = Updater.latest()
+                runOnUiThread {
+                    pendingUpdate = release
+                    when {
+                        release == null ->
+                            updateSays("Could not reach GitHub. Check the connection and try again.", false)
+                        Updater.isNewer(release.version, BuildConfig.VERSION_NAME) ->
+                            updateSays("Version " + release.version + " is ready to install.", true)
+                        else ->
+                            updateSays("You are on the newest version.", false)
+                    }
+                }
+            }.start()
+        }
+
+        @JavascriptInterface
+        fun installUpdate() {
+            val release = pendingUpdate ?: return
+            updateSays("Downloading…", false)
+            Thread {
+                val dir = File(cacheDir, "updates").apply { mkdirs() }
+                val file = Updater.download(release.apkUrl, dir)
+                runOnUiThread {
+                    if (file == null) {
+                        updateSays("The download did not finish. Try again.", true)
+                    } else {
+                        updateSays("Opening the installer…", false)
+                        openInstaller(file)
+                    }
+                }
+            }.start()
+        }
+
         @JavascriptInterface
         fun scanReceipt() {
             runOnUiThread { chooseSource() }
@@ -502,6 +544,26 @@ class MainActivity : ComponentActivity() {
             .put("rows", JSONArray(rows))
         runJs("window.onReceiptScanned($payload);")
         sheetOpen = true
+    }
+
+    private fun updateSays(message: String, canInstall: Boolean) {
+        runJs("window.onUpdateStatus && window.onUpdateStatus(" +
+            JSONObject.quote(message) + "," + canInstall + ");")
+    }
+
+    private fun openInstaller(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, authority(), file)
+            startActivity(
+                android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (e: Exception) {
+            updateSays("Android would not open the installer.", true)
+        }
     }
 
     /** Says what went wrong in the sheet. Silence is what made this hard to find. */

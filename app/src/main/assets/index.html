@@ -294,6 +294,14 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
     <div class="xbtns"><button type="button" class="ghost" id="copyBtn">Copy my list</button><button type="button" class="ghost" id="loadBtn">Load pasted list</button><button type="button" class="ghost" id="keepBtn">Save as a receipt</button></div>
     <p class="tip" id="xmsg" role="status"></p>
   </section>
+  <section class="xfer" id="updateBox" hidden>
+    <h2>This app</h2>
+    <p class="tip" id="updateMsg">Version</p>
+    <div class="xbtns">
+      <button type="button" class="ghost" id="updateBtn">Check for updates</button>
+      <button type="button" class="ghost" id="installBtn" hidden>Install it</button>
+    </div>
+  </section>
   <p class="tip">Paying by Lipa na M-Pesa (Buy Goods till) has no charge for you, so the "Left" figure is what you'll still have on M-Pesa after paying, if your budget is your M-Pesa balance. Your list stays saved in this browser.</p>
 </div>
 
@@ -650,6 +658,25 @@ $('sheetTitle').onclick=()=>{
 };
 $('sheetCancel').onclick=()=>closeSheet();
 $('sheet').onclick=e=>{if(e.target===$('sheet'))closeSheet()};
+
+/* ---- Updates --------------------------------------------------------- */
+/* The one thing in the app that uses the network, and only when tapped. */
+if(bridge('appVersion')){
+  $('updateBox').hidden=false;
+  let version='';
+  try{version=and().appVersion()}catch(e){}
+  $('updateMsg').textContent='Version '+version+'. Updates come from the project on GitHub.';
+  $('updateBtn').onclick=()=>{
+    $('updateMsg').textContent='Checking…';
+    $('installBtn').hidden=true;
+    try{and().checkUpdate()}catch(e){$('updateMsg').textContent='Could not check just now.'}
+  };
+  $('installBtn').onclick=()=>{try{and().installUpdate()}catch(e){}};
+}
+window.onUpdateStatus=(message,canInstall)=>{
+  $('updateMsg').textContent=String(message);
+  $('installBtn').hidden=!canInstall;
+};
 
 /* ---- Saved receipts --------------------------------------------------- */
 const RKEY='basket-receipts-v1';
