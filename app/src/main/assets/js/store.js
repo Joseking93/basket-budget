@@ -39,6 +39,7 @@ const empty = () => ({
   // receiptId -> txnId for the statement line each one paid for.
   receipts: [],
   receiptLinks: {},
+  rawDropped: 0, // the one-off that freed the stored SMS text
   // LENDER -> the day it last told us a loan of its was finished. Not money, so
   // not a transaction; it is what stops a settled loan being predicted forever.
   settlements: {},
@@ -55,6 +56,7 @@ export function load() {
     state = empty();
   }
   migrate();
+  dropRawFromSms();
   return state;
 }
 
@@ -106,13 +108,21 @@ export function revision() {
   return rev;
 }
 
+/** Set when a save failed, so the page can say so where it cannot be missed. */
+export let saveFailed = null;
+
 export function save() {
   rev++;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
+    saveFailed = null;
   } catch (err) {
-    // Quota is the realistic failure. Surface it — silently losing data is worse.
-    alert('Could not save: ' + err.message);
+    // Quota is the realistic failure, and it is quiet: the app keeps working
+    // from memory and loses everything when it closes. alert() was the old
+    // answer and a WebView swallows alerts, so this is held for the page to
+    // show instead.
+    saveFailed = err && err.message ? err.message : 'storage is full';
+    console.error('Could not save', err);
   }
 }
 
@@ -540,6 +550,32 @@ export function noteSettlements(list) {
 
 export function settlements() {
   return state.settlements || {};
+}
+
+/**
+ * Throws away the stored copy of each SMS, once.
+ *
+ * The message text was kept on every transaction and is the larger half of the
+ * record: the parsed fields are about 180 bytes, the message another 200, and
+ * most of that 200 is Safaricom's boilerplate about daily limits and paybill
+ * shortcuts. It is what pushed the whole store past the 5MB an origin gets.
+ *
+ * The rows IMPORTED FROM STATEMENTS keep theirs - there are far fewer of them
+ * and the reconciler reads bank references out of the text. And a message can
+ * always be read again; a save that silently failed could not be.
+ */
+function dropRawFromSms() {
+  if (state.rawDropped) return;
+  let n = 0;
+  for (const t of Object.values(state.transactions)) {
+    if (t.raw && (t.source === 'sms' || !t.source)) {
+      delete t.raw;
+      n++;
+    }
+  }
+  state.rawDropped = 1;
+  save();
+  if (n) console.info(`Freed the stored message text from ${n} transactions.`);
 }
 
 export function undatedTransactions() {

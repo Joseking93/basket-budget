@@ -20,6 +20,7 @@ import android.print.PrintManager
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -255,6 +256,39 @@ class MainActivity : ComponentActivity() {
                 // itself: whatever M-PESA has sent since the last look is read
                 // on the way in, and says nothing when there is nothing new.
                 if (url.endsWith(HOME_PAGE) && hasSms()) readMessages(all = false, quiet = true)
+            }
+        }
+        // Without a WebChromeClient a WebView shows no alert, no confirm and no
+        // console output - it discards them. The page's own "could not save"
+        // warning was going nowhere for exactly that reason.
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onJsAlert(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: android.webkit.JsResult?,
+            ): Boolean {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message.orEmpty())
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
+            }
+
+            override fun onJsConfirm(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: android.webkit.JsResult?,
+            ): Boolean {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message.orEmpty())
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
             }
         }
         web.addJavascriptInterface(Bridge(), "Android")

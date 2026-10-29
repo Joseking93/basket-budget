@@ -230,6 +230,29 @@ const PATTERNS = [
     ),
   },
   {
+    // "Reversal of transaction X has been successfully reversed on 19/11/22 at
+    //  6:12 PM and Ksh150.00 is credited to your M-PESA account." The date
+    //  comes BEFORE the amount here, which the pattern below cannot read.
+    type: 'Refund',
+    direction: 'In',
+    re: new RegExp(
+      `${CONF}[^]*?reversed[^]*?${AT}\\s+and\\s+${amt('amt')} (?:is|has been) credited`,
+      'i'
+    ),
+    who: 'M-PESA Reversal',
+  },
+  {
+    // The same sentence the other way round: a payment TO him reversed, so the
+    // money goes back out again.
+    type: 'Refund',
+    direction: 'Out',
+    re: new RegExp(
+      `${CONF}[^]*?reversed[^]*?${AT}\\s+and\\s+${amt('amt')} (?:is|has been) debited`,
+      'i'
+    ),
+    who: 'M-PESA Reversal',
+  },
+  {
     // Money coming back after a reversal. The reversed receipt is in the text, but
     // this transaction has its own, so the two never collide.
     type: 'Refund',
@@ -453,6 +476,8 @@ const FULIZA_RE = new RegExp(`${CONF}[^]*?Fuliza M-PESA amount is ${amt('amt')}`
 // as "could not read" — doing that is what turned the panel into a wall of noise.
 const NOT_A_TRANSACTION = [
   /M-PESA balance was/i,
+  // "Your KCB M-PESA balance is: 1. Saving Account; 1.27 at 7:29 PM."
+  /balance is:\s*\d\./i,
   /balance (?:enquiry|inquiry)/i,
   /has been registered/i,
   /Fuliza M-PESA limit (?:has been|is now|increased|decreased)/i,
@@ -663,7 +688,6 @@ function parseBank(block, account, at) {
       balance: null,
       accountSource: account,
       source: 'sms',
-      raw: block,
     };
     if (p.after) p.after(txn, g);
     return [txn];
@@ -695,7 +719,6 @@ function parseOne(block, fallbackDate = null) {
       account: g.acct ? clean(g.acct) : null,
       balance: matchBalance(block),
       source: 'sms',
-      raw: block,
     };
     if (p.after) p.after(txn, g);
     out.push(txn);
@@ -715,7 +738,6 @@ function parseOne(block, fallbackDate = null) {
         account: null,
         balance: null,
         source: 'sms',
-        raw: block,
       });
     }
     break;
@@ -742,7 +764,6 @@ function parseOne(block, fallbackDate = null) {
       account: null,
       balance: null,
       source: 'sms',
-      raw: block,
     });
   }
 

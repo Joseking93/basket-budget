@@ -145,6 +145,24 @@ function visible() {
 }
 
 /**
+ * Says so when a save failed.
+ *
+ * A failed save is invisible by nature: the app carries on from memory and
+ * looks perfectly healthy until it is closed, at which point the work is gone.
+ * It has to be said on the screen, every render, until it stops being true.
+ */
+function warnAboutStorage() {
+  const box = $('#window-warning');
+  if (!box || !store.saveFailed) return;
+  box.innerHTML = `<p><b>This phone would not save the last change.</b>
+    ${escapeHtml(store.saveFailed)}. Nothing is lost while the app is open, but
+    it will be when it closes. Reading fewer months in Data &amp; sync, or
+    removing undated rows, frees space.</p>
+    <div class="row"><button type="button" class="primary" data-go="data">Open Data &amp; sync</button></div>`;
+  wireViewLinks(box);
+}
+
+/**
  * Says so when the window is hiding everything.
  *
  * A home screen of zeros looks exactly like a broken one, and the difference
@@ -198,6 +216,7 @@ function render() {
   const all = decorate(visible());
   const txns = inRange(all);
   warnAboutWindow(all);
+  warnAboutStorage();
 
   const s = viz.summarise(txns);
   $('#kpi-spend').textContent = viz.fmt(s.realSpend);
