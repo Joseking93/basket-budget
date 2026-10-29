@@ -579,14 +579,15 @@
 
       <h3 class="debt-group">How far back to read</h3>
       <p class="hint">Nothing is deleted &mdash; every message stays on file. This is how much of it
-        the screens load. A phone re-reading four years of M-PESA every time a figure
-        changes is what made the app slow; five months is enough for budgets, trends and
-        the monthly report, and you can widen it whenever you want the long view.</p>
+        the screens load, and a phone re-reading four years of M-PESA every time a figure
+        changes is what made the app slow. A fixed date stays where you put it; a rolling
+        window walks forward and drops the far end as it goes.</p>
       <select id="set-window" aria-label="How far back to read">
-        <option value="3">The last 3 months</option>
-        <option value="5">The last 5 months</option>
-        <option value="12">The last 12 months</option>
-        <option value="24">The last 2 years</option>
+        <option value="from:2026-06-01">Since June 2026, and everything after</option>
+        <option value="3">A rolling 3 months</option>
+        <option value="5">A rolling 5 months</option>
+        <option value="12">A rolling 12 months</option>
+        <option value="24">A rolling 2 years</option>
         <option value="0">Everything on file</option>
       </select>
       <p class="hint" id="window-note"></p>

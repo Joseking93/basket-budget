@@ -500,7 +500,7 @@ class MainActivity : ComponentActivity() {
                     prefs.edit().putLong(KEY_NEWEST_SMS, batch.newest).apply()
                 }
                 if (quiet && batch.messages.isEmpty()) return@runOnUiThread
-                deliverSms(batch.messages)
+                deliverSms(batch.messages, batch.truncated)
             }
         }.start()
     }
@@ -509,16 +509,19 @@ class MainActivity : ComponentActivity() {
      * In batches, because one evaluateJavascript carrying a whole inbox is a
      * single enormous string across a process boundary and can simply fail.
      */
-    private fun deliverSms(messages: List<String>) {
+    private fun deliverSms(messages: List<String>, truncated: Boolean = false) {
         if (messages.isEmpty()) {
-            runJs("window.onSmsBatch && window.onSmsBatch('', true, 0);")
+            runJs("window.onSmsBatch && window.onSmsBatch('', true, 0, false);")
             return
         }
         val chunks = messages.chunked(SMS_CHUNK)
         chunks.forEachIndexed { index, chunk ->
             val text = JSONObject.quote(chunk.joinToString(BLANK_LINE))
             val last = index == chunks.size - 1
-            runJs("window.onSmsBatch && window.onSmsBatch(" + text + ", " + last + ", " + messages.size + ");")
+            runJs(
+                "window.onSmsBatch && window.onSmsBatch(" + text + ", " + last + ", " +
+                    messages.size + ", " + truncated + ");"
+            )
         }
     }
 

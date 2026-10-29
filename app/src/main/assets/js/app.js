@@ -131,15 +131,24 @@ function inRange(txns) {
  * total below is working on the same, smaller set.
  */
 function visible() {
-  const months = store.settings().windowMonths ?? 0;
   const all = store.allTransactions();
-  if (!months) return all;
+  const cutoff = windowStart();
+  if (!cutoff) return all;
+  return all.filter((t) => !t.date || t.date >= cutoff);
+}
+
+/** The first day the app reads, as an ISO date, or null for everything on file. */
+function windowStart() {
+  const s = store.settings();
+  // A fixed date wins over a rolling count: it is the one that stays put.
+  if (s.windowFrom) return `${s.windowFrom}T00:00:00.000Z`;
+  const months = s.windowMonths ?? 0;
+  if (!months) return null;
   const from = new Date();
   from.setMonth(from.getMonth() - months);
   from.setDate(1);
   from.setHours(0, 0, 0, 0);
-  const cutoff = from.toISOString();
-  return all.filter((t) => !t.date || t.date >= cutoff);
+  return from.toISOString();
 }
 
 function render() {
@@ -1650,13 +1659,14 @@ function renderSettings() {
   const s = store.settings();
   const win = $('#set-window');
   if (win) {
-    win.value = String(s.windowMonths ?? 0);
+    win.value = s.windowFrom ? `from:${s.windowFrom}` : String(s.windowMonths ?? 0);
+    const n = (v) => v.toLocaleString('en-GB');
     const on = store.allTransactions().length;
     const read = visible().length;
     $('#window-note').textContent =
       on === read
-        ? `Reading all ${on} transaction${on === 1 ? '' : 's'} on file.`
-        : `Reading ${read} of ${on} on file. The other ${on - read} are kept, just not loaded.`;
+        ? `Reading all ${n(on)} transaction${on === 1 ? '' : 's'} on file.`
+        : `Reading ${n(read)} of ${n(on)} on file. The other ${n(on - read)} are kept, just not loaded.`;
   }
   $('#set-name').value = s.name || '';
   $('#set-phones').value = (s.phones || []).join(', ');
@@ -2240,10 +2250,18 @@ function wireWindow() {
   const win = $('#set-window');
   if (!win) return;
   win.addEventListener('change', () => {
-    store.saveSettings({ windowMonths: parseInt(win.value, 10) });
+    const v = win.value;
+    if (v.startsWith('from:')) {
+      store.saveSettings({ windowFrom: v.slice(5) });
+      toast(`Reading from ${shortDate(v.slice(5))} onwards.`);
+    } else {
+      // A rolling window and a fixed date are alternatives, so choosing one has
+      // to clear the other - otherwise the date would silently keep winning.
+      store.saveSettings({ windowFrom: null, windowMonths: parseInt(v, 10) });
+      toast(v === '0' ? 'Reading everything on file.' : `Reading a rolling ${v} months.`);
+    }
     render();
     renderSettings();
-    toast(win.value === '0' ? 'Reading everything on file.' : `Reading the last ${win.value} months.`);
   });
 }
 
@@ -3137,7 +3155,7 @@ function wireSms() {
   // The inbox arrives in batches, so the tally is kept across them and the
   // page is only re-rendered once at the end.
   let tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };
-  window.onSmsBatch = (text, done, found) => {
+  window.onSmsBatch = (text, done, found, truncated) => {
     if (text) {
       const { transactions, unparsed, ignored } = parseMessages(text);
       const counts = store.addTransactions(transactions);
@@ -3158,11 +3176,16 @@ function wireSms() {
     }
     render();
     renderNameRules();
-    let msg = `${tally.added} new transaction${tally.added === 1 ? '' : 's'} from ${found} message${found === 1 ? '' : 's'}.`;
-    if (tally.duplicate) msg += ` ${tally.duplicate} already on file.`;
-    if (tally.unparsed.length) msg += ` ${tally.unparsed.length} not recognised.`;
+    const n = (v) => v.toLocaleString('en-GB');
+    let msg = tally.added
+      ? `${n(tally.added)} new transaction${tally.added === 1 ? '' : 's'} from ${n(found)} message${found === 1 ? '' : 's'}.`
+      : `Read ${n(found)} message${found === 1 ? '' : 's'} \u2014 nothing new; it was all already on file.`;
+    if (tally.added && tally.duplicate) msg += ` ${n(tally.duplicate)} were already on file.`;
+    if (tally.unparsed.length) msg += ` ${n(tally.unparsed.length)} not recognised \u2014 see below.`;
+    if (truncated) msg += ' This phone holds more than the app reads in one go; run it again for the rest.';
     note.textContent = msg;
-    toast(msg, tally.unparsed.length ? 'warn' : 'ok');
+    // Nothing new is the normal outcome of a re-read, not a warning.
+    toast(msg, truncated ? 'warn' : 'ok');
     // Nothing is dropped silently, same as the paste box.
     showUnparsed(tally.unparsed, tally.ignored);
     tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };

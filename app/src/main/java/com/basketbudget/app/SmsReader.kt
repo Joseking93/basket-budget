@@ -21,7 +21,12 @@ object SmsReader {
     /** A confirmed transaction always opens with its receipt code. */
     private val LOOKS_LIKE_TRANSACTION = Regex("""^[A-Z0-9]{10}\s+Confirmed""")
 
-    data class Batch(val messages: List<String>, val newest: Long)
+    data class Batch(
+        val messages: List<String>,
+        val newest: Long,
+        /** True when [limit] stopped the read before the inbox ran out. */
+        val truncated: Boolean = false,
+    )
 
     /**
      * Every M-PESA message newer than [since], oldest first so the page reads
@@ -29,7 +34,7 @@ object SmsReader {
      *
      * @param since epoch millis; 0 reads the whole inbox.
      */
-    fun read(context: Context, since: Long = 0L, limit: Int = 5000): Batch {
+    fun read(context: Context, since: Long = 0L, limit: Int = 50_000): Batch {
         val where = StringBuilder("($SENDERS)")
         if (since > 0) where.append(" AND date > ").append(since)
 
@@ -64,6 +69,6 @@ object SmsReader {
             }
         }
 
-        return Batch(bodies, newest)
+        return Batch(bodies, newest, truncated = bodies.size >= limit)
     }
 }
