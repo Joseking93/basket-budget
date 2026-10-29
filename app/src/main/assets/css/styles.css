@@ -175,6 +175,13 @@ h4 { font-size: 13px; font-weight: 600; }
 .bc-bar i.over { background: var(--bad); }
 .bc-go { color: var(--muted); }
 
+.warnbar:not(:empty) {
+  background: var(--tint-soft); border: 1px solid var(--tint-line);
+  border-radius: var(--r-md); padding: 13px 15px; font-size: 13px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.warnbar p { margin: 0; }
+
 .kpi-aside { margin: -4px 0 0; text-align: center; }
 
 /* ── Views ─────────────────────────────────────────────────── */

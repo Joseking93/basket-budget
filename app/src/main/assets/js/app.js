@@ -137,6 +137,41 @@ function visible() {
   return all.filter((t) => !t.date || t.date >= cutoff);
 }
 
+/**
+ * Says so when the window is hiding everything.
+ *
+ * A home screen of zeros looks exactly like a broken one, and the difference
+ * matters: an app that has nothing and an app that is holding six thousand
+ * transactions it has been told not to read are different problems with
+ * different fixes. So it names the gap and offers both fixes.
+ */
+function warnAboutWindow(visibleTxns) {
+  const box = $('#window-warning');
+  if (!box) return;
+  const onFile = store.allTransactions();
+  const cutoff = windowStart();
+  if (visibleTxns.length || !onFile.length || !cutoff) {
+    box.innerHTML = '';
+    return;
+  }
+  const dates = onFile.map((t) => t.date).filter(Boolean).sort();
+  const newest = dates.at(-1);
+  const full = (iso) =>
+    new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  box.innerHTML = `<p><b>Nothing to show since ${escapeHtml(full(cutoff))}.</b>
+    ${onFile.length.toLocaleString('en-GB')} transactions are on file, but the newest is from
+    ${newest ? escapeHtml(full(newest)) : 'an undated row'} — so none of them fall inside the window.</p>
+    <div class="row">
+      <button type="button" class="primary" data-go="intake">Read my messages again</button>
+      <button type="button" class="ghost" data-go="data">Change the window</button>
+    </div>`;
+  wireViewLinks(box);
+}
+
 /** The first day the app reads, as an ISO date, or null for everything on file. */
 function windowStart() {
   const s = store.settings();
@@ -154,6 +189,7 @@ function windowStart() {
 function render() {
   const all = decorate(visible());
   const txns = inRange(all);
+  warnAboutWindow(all);
 
   const s = viz.summarise(txns);
   $('#kpi-spend').textContent = viz.fmt(s.realSpend);
