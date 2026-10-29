@@ -39,6 +39,9 @@ const empty = () => ({
   // receiptId -> txnId for the statement line each one paid for.
   receipts: [],
   receiptLinks: {},
+  // LENDER -> the day it last told us a loan of its was finished. Not money, so
+  // not a transaction; it is what stops a settled loan being predicted forever.
+  settlements: {},
 });
 
 let state = empty();
@@ -521,6 +524,24 @@ export function updatePayable(id, patch) {
  * that is organised by time either ignores them or is distorted by them. They
  * are always a parsing accident, never something anyone entered.
  */
+/** Remembers a lender saying a loan is done. The latest word wins. */
+export function noteSettlements(list) {
+  let changed = false;
+  for (const s of list || []) {
+    if (!s || !s.lender || !s.date) continue;
+    if (!state.settlements[s.lender] || state.settlements[s.lender] < s.date) {
+      state.settlements[s.lender] = s.date;
+      changed = true;
+    }
+  }
+  if (changed) save();
+  return changed;
+}
+
+export function settlements() {
+  return state.settlements || {};
+}
+
 export function undatedTransactions() {
   return Object.values(state.transactions).filter((t) => !t.date);
 }

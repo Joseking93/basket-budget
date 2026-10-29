@@ -494,12 +494,39 @@ const NOT_A_TRANSACTION = [
 ];
 
 /**
+ * A lender saying a loan is finished.
+ *
+ * Nothing moves, so there is no transaction to make — but it is the only thing
+ * that can tell the difference between "he pays this every month" and "he paid
+ * this every month until it was done", and those predict opposite futures.
+ */
+const SETTLED_RE = /(?:has (?:now )?been|is now) fully paid/i;
+
+/**
+ * Who said it. The sentence naming the lender and the sentence saying it is
+ * finished are usually two sentences apart - "your payment of KES X to KCB
+ * Mobile Loan has been received for loan N. The loan has now been fully paid."
+ * - so they are matched separately rather than in one reach.
+ */
+const SETTLED_LENDER = [
+  /to\s+([A-Za-z][A-Za-z0-9 .&-]{0,30}?)\s+(?:Mobile\s+|M-?PESA\s+)?[Ll]oan/i,
+  /your\s+([A-Za-z][A-Za-z0-9 .&-]{0,30}?)\s+(?:Mobile\s+|M-?PESA\s+)?[Ll]oan/i,
+];
+
+/** The first word of a lender's name, which is the part that identifies it. */
+function lenderKey(name) {
+  const w = String(name || '').trim().split(/\s+/)[0] || '';
+  return w.length >= 3 ? w.toUpperCase() : '';
+}
+
+/**
  * @param {string} raw one or more M-PESA SMS messages
- * @returns {{transactions: object[], unparsed: string[], ignored: number}}
+ * @returns {{transactions: object[], unparsed: string[], ignored: number, settled: object[]}}
  */
 export function parseMessages(raw) {
   const transactions = [];
   const unparsed = [];
+  const settled = [];
   let ignored = 0;
   // Messages arrive oldest first. A dateless message (a Fuliza repayment) happens
   // within seconds of the transaction that triggered it, so the previous one's
@@ -512,6 +539,12 @@ export function parseMessages(raw) {
     // The echo test runs FIRST for a bank. It is not a fallback for a message
     // that would not parse — it is the thing that decides whether a message is
     // a record of money or a repetition of one.
+    if (SETTLED_RE.test(body)) {
+      const named = SETTLED_LENDER.map((re) => body.match(re)).find(Boolean);
+      const key = lenderKey(named && named[1]);
+      if (key) settled.push({ lender: key, date: (at || lastDate || '').slice(0, 10) });
+    }
+
     const echo = account && BANK_ECHOES.some((re) => re.test(body));
     const txns = account
       ? echo
@@ -527,7 +560,7 @@ export function parseMessages(raw) {
       unparsed.push(body);
     }
   }
-  return { transactions, unparsed, ignored };
+  return { transactions, unparsed, ignored, settled };
 }
 
 // The app wraps each message the phone hands over in its own timestamp and the

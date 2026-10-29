@@ -189,6 +189,12 @@ h4 { font-size: 13px; font-weight: 600; }
 }
 .warnbar p { margin: 0; }
 
+/* A figure you can open says so, quietly: it lifts under the finger and takes
+   a focus ring like any other control. */
+.openable { cursor: pointer; transition: transform .12s var(--ease); }
+.openable:active { transform: scale(.985); }
+.openable:focus-visible { outline: 2px solid var(--tint); outline-offset: 3px; }
+
 .kpi-aside { margin: -4px 0 0; text-align: center; }
 
 /* ── Views ─────────────────────────────────────────────────── */

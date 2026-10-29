@@ -37,6 +37,10 @@ const state = {
   // Which budget line / category the "Track a budget line" panel is following.
   track: null,
   drillMonth: null,
+  // A plain date window, for the figures that count days rather than months -
+  // today, and the last seven.
+  drillFrom: null,
+  drillTo: null,
   balAcct: null,
   sort: { key: 'date', dir: 'desc' },
   // How many rows of the transaction list are on screen. Everything is still
@@ -258,6 +262,13 @@ function render() {
   const chip = $('#drill-chip');
   const bits = [];
   if (state.drillMonth) bits.push(monthLabel(state.drillMonth));
+  if (state.drillFrom || state.drillTo) {
+    bits.push(
+      state.drillFrom === state.drillTo
+        ? shortDate(state.drillFrom)
+        : `${shortDate(state.drillFrom || '')} \u2013 ${shortDate(state.drillTo || '')}`
+    );
+  }
   if (state.catFilter !== 'all') bits.push(state.catFilter);
   if (state.search) bits.push(`“${state.search}”`);
   if (state.dirFilter !== 'all') bits.push(state.dirFilter === 'Out' ? 'out only' : 'in only');
@@ -267,6 +278,8 @@ function render() {
   if (bits.length)
     $('#drill-clear').addEventListener('click', () => {
       state.drillMonth = null;
+      state.drillFrom = null;
+      state.drillTo = null;
       state.catFilter = 'all';
       state.search = '';
       state.dirFilter = 'all';
@@ -2181,6 +2194,8 @@ function applyFilters(txns) {
   // August — and a calendar-month filter looked for it in July and found nothing.
   const monthOfTxn = monthResolver(txns);
   return txns.filter((t) => {
+    if (state.drillFrom && !(t.date && t.date.slice(0, 10) >= state.drillFrom)) return false;
+    if (state.drillTo && !(t.date && t.date.slice(0, 10) <= state.drillTo)) return false;
     // Category + month together, so a split payment assigned to another budget month
     // shows up when you drill THAT month. A slice matches if its category fits the
     // filter AND its month is the drilled one — its own if the slice was assigned one,
@@ -2409,9 +2424,17 @@ function handlePaste() {
   const raw = $('#sms-input').value;
   if (!raw.trim()) return;
 
-  const { transactions, unparsed, ignored } = parseMessages(raw);
+  const { transactions, unparsed, ignored, settled } = parseMessages(raw);
+  const noted = store.noteSettlements(settled);
   if (!transactions.length) {
-    toast('Could not read any M-PESA messages in that text.', 'warn');
+    // A message can carry no money and still change the picture - a lender
+    // saying a loan is finished removes it from what is expected next.
+    if (noted) {
+      render();
+      toast('Noted: that loan is settled, so it has stopped being expected.');
+    } else {
+      toast('Could not read any M-PESA messages in that text.', 'warn');
+    }
     showUnparsed(unparsed, ignored);
     return;
   }
@@ -2851,6 +2874,49 @@ function cycleBounds(all, cycleStart, todayIso) {
 }
 
 
+/**
+ * Open the transaction list showing exactly what a figure counted.
+ *
+ * Biggest first, because the question behind "how did I spend that much" is
+ * almost always answered by the top two or three rows.
+ */
+function openBehind({ month = null, from = null, to = null, dir = 'all', search = '', label }) {
+  state.drillMonth = month;
+  state.drillFrom = from;
+  state.drillTo = to;
+  state.dirFilter = dir;
+  state.search = search;
+  state.catFilter = 'all';
+  state.acctFilter = 'all';
+  state.txnLimit = 150;
+  state.sort = { key: 'amount', dir: 'desc' };
+  const box = $('#search');
+  if (box) box.value = search;
+  render();
+  showView('txns');
+  toast(`${label} \u2014 biggest first. Clear the filters to go back.`);
+}
+
+/** Makes a card open the figure it is showing. */
+function wireBehind(el, get) {
+  if (!el) return;
+  el.classList.add('openable');
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  const go = (e) => {
+    // An Upcoming card has its own link inside it; let that win.
+    if (e.target.closest('[data-go]') && e.target.closest('[data-go]') !== el) return;
+    openBehind(get());
+  };
+  el.addEventListener('click', go);
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      go(e);
+    }
+  });
+}
+
 /** The last seven days as bars, today picked out. */
 function renderSpark(all, todayIso) {
   const days = [];
@@ -2873,6 +2939,10 @@ function renderSpark(all, todayIso) {
   $('#spent-today').textContent = viz.fmt(totals[6]);
   const week = totals.reduce((a, v) => a + v, 0);
   $('#spent-today-note').textContent = week ? `${viz.fmt(week)} over the week` : 'nothing yet';
+
+  const cards = document.querySelectorAll('.duo .duo-card');
+  wireBehind(cards[0], () => ({ from: days[0], to: days[6], dir: 'Out', label: 'The last seven days' }));
+  wireBehind(cards[1], () => ({ from: days[6], to: days[6], dir: 'Out', label: 'Today' }));
   const strip = $('#spark-days');
   if (strip) strip.innerHTML = letters.map((l) => `<span>${escapeHtml(l)}</span>`).join('');
 }
@@ -2916,7 +2986,18 @@ function renderHomeBudgets(report, budgeted) {
 function renderHomeUpcoming(all) {
   const box = $('#home-upcoming');
   const sec = $('#home-upcoming-sec');
-  const found = findRecurring(all).filter((r) => !r.stale && r.nextDue);
+  // A lender that has said a loan of its is finished stops being predicted,
+  // unless it has been paid again since - borrowing again starts a new one.
+  // Written `\\b`, because in a template literal `\b` is a backspace character
+  // and the regex then matches nothing at all, silently.
+  const settled = Object.entries(store.settlements());
+  const stillOwed = (r) =>
+    settled.every(([lender, when]) => {
+      if (!new RegExp(`\\b${lender}\\b`, 'i').test(r.name)) return true;
+      // Paid again since it was settled: he borrowed again, so it is live.
+      return String(r.last || '').slice(0, 10) > when;
+    });
+  const found = findRecurring(all).filter((r) => !r.stale && r.nextDue && stillOwed(r));
   const soon = found
     .slice()
     .sort((a, b) => (a.nextDue < b.nextDue ? -1 : 1))
@@ -2931,7 +3012,7 @@ function renderHomeUpcoming(all) {
     .map((r) => {
       const inDays = Math.round((Date.parse(r.nextDue) - Date.parse(today)) / 86400000);
       const when = inDays < 0 ? 'overdue' : inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`;
-      return `<button class="bcard" type="button" data-go="recurring">
+      return `<button class="bcard" type="button" data-due="${escapeHtml(r.name)}">
         <span class="bc-icon" aria-hidden="true">↻</span>
         <span class="bc-text">
           <span class="bc-name">${escapeHtml(r.name)}</span>
@@ -2942,7 +3023,13 @@ function renderHomeUpcoming(all) {
       </button>`;
     })
     .join('');
-  wireViewLinks(box);
+  box.querySelectorAll('[data-due]').forEach((el) => {
+    wireBehind(el, () => ({
+      search: el.dataset.due,
+      dir: 'Out',
+      label: `Every payment to ${el.dataset.due}`,
+    }));
+  });
 }
 
 function renderHome(all) {
@@ -3013,6 +3100,19 @@ function renderHome(all) {
   $('#chip-in').textContent = viz.fmt(cs.income);
   $('#chip-days').textContent = days === 0 ? 'Last' : days;
   $('#chip-days-label').textContent = days === 1 ? 'Day left' : 'Days left';
+
+  // Every figure on this card opens what it counted.
+  const labelNow = monthLabel(month);
+  wireBehind(document.querySelector('.gauge-card'), () => ({
+    month,
+    dir: 'Out',
+    label: `Spending in ${labelNow}`,
+  }));
+  wireBehind($('#chip-in') && $('#chip-in').closest('.chip'), () => ({
+    month,
+    dir: 'In',
+    label: `Money in during ${labelNow}`,
+  }));
 
   renderSpark(all, todayIso);
   renderHomeBudgets(report, budgeted);
@@ -3251,7 +3351,8 @@ function wireSms() {
   let tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };
   window.onSmsBatch = (text, done, found, truncated, newestAt) => {
     if (text) {
-      const { transactions, unparsed, ignored } = parseMessages(text);
+      const { transactions, unparsed, ignored, settled } = parseMessages(text);
+      store.noteSettlements(settled);
       const counts = store.addTransactions(transactions);
       tally.added += counts.added;
       tally.duplicate += counts.duplicate;
