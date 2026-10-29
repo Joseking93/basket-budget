@@ -3772,6 +3772,22 @@ function renderHome(all) {
     label: `Money in during ${labelNow}`,
   }));
 
+  // Hand the home-screen widget what it cannot work out for itself. The note
+  // carries the budget when there is one and the cycle's dates when there is
+  // not, because "51,554" on its own is a number without a question.
+  try {
+    if (window.Android && window.Android.setSpendSummary) {
+      const used = budgeted > 0 ? Math.round((spent / budgeted) * 100) : 0;
+      const note =
+        budgeted > 0
+          ? `${viz.fmt(Math.abs(budgeted - spent))} ${spent > budgeted ? 'over' : 'left'} \u00b7 ${days} day${days === 1 ? '' : 's'} to go`
+          : `${shortDate(from)} \u2013 ${shortDate(to)} \u00b7 ${days} day${days === 1 ? '' : 's'} to go`;
+      window.Android.setSpendSummary(viz.fmt(spent + outside), note, used);
+    }
+  } catch (e) {
+    /* an older build without the bridge */
+  }
+
   renderBalances();
   renderSpark(all, todayIso);
   renderHomeBudgets(report, budgeted);

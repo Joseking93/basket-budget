@@ -3,4 +3,17 @@
     <color name="brand">#4B3FBF</color>
     <!-- The window colour before the page loads; the page then sets its own. -->
     <color name="page_bg">#F2F2F7</color>
+
+    <!-- Widgets. A home screen is somebody's photograph, so a widget that wants
+         to belong there is a dark card sitting ON it, not a block of brand
+         colour covering it up. The colour is spent on one small thing — the
+         icon — which is also what makes the three of them read as a set. -->
+    <color name="w_card">#D90E0E10</color>
+    <color name="w_ink">#FFFFFFFF</color>
+    <color name="w_dim">#99FFFFFF</color>
+    <color name="w_tint">#FF9F0A</color>
+    <color name="w_tint_soft">#33FF9F0A</color>
+    <color name="w_good">#30D158</color>
+    <color name="w_good_soft">#2E30D158</color>
+    <color name="w_track">#26FFFFFF</color>
 </resources>

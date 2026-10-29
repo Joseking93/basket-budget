@@ -508,6 +508,19 @@ class MainActivity : ComponentActivity() {
         }
 
         /** So the page only offers the button on a phone that can do it. */
+        /**
+         * The page's own summary of the cycle, for the home-screen widget.
+         *
+         * The transactions live in the WebView's storage, which Android cannot
+         * read, so the figure has to come the other way. Sent on every render
+         * of the home screen - cheap, and it means the widget is never older
+         * than the last time the app was open.
+         */
+        @JavascriptInterface
+        fun setSpendSummary(amount: String, note: String, pct: Int) {
+            runOnUiThread { SpendWidget.say(this@MainActivity, amount, note, pct) }
+        }
+
         @JavascriptInterface
         fun canReadSms(): Boolean = true
 

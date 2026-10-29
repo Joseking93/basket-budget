@@ -6,4 +6,8 @@
     <string name="widget_inbox_label">New messages</string>
     <string name="widget_inbox_idle">Tap to read</string>
     <string name="widget_inbox_description">Takes in whatever M-PESA has sent since the last look, and says how many.</string>
+    <string name="widget_spend_label">Spent this cycle</string>
+    <string name="widget_spend_empty">—</string>
+    <string name="widget_spend_note">Open the app once to fill this in</string>
+    <string name="widget_spend_description">What you have spent this cycle, against your budget.</string>
 </resources>
