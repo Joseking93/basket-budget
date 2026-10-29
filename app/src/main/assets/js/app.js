@@ -2979,6 +2979,72 @@ function wireBehind(el, get) {
   });
 }
 
+/**
+ * What is in each account, from the last message that said so.
+ *
+ * Read from EVERY transaction on file rather than the window, because a
+ * balance is the latest one that exists - narrowing the window should change
+ * what you are looking at, never what you have.
+ */
+function renderBalances() {
+  const box = $('#balances');
+  if (!box) return;
+  const latest = new Map();
+  for (const t of store.allTransactions()) {
+    if (t.balance == null || !t.date) continue;
+    const acct = t.accountSource || 'mpesa';
+    const seen = latest.get(acct);
+    if (!seen || t.date > seen.date) latest.set(acct, t);
+  }
+
+  const today = Date.parse(isoDay(new Date()));
+  box.innerHTML = [...latest.entries()]
+    .sort((a, b) => (a[1].date < b[1].date ? 1 : -1))
+    .map(([acct, t]) => {
+      const days = Math.round((today - Date.parse(t.date.slice(0, 10))) / 86400000);
+      // Said plainly: a balance is only as current as the message it came from,
+      // and one from three weeks ago is a fact about three weeks ago.
+      const when =
+        days <= 0 ? 'as of today' : days === 1 ? 'as of yesterday' : `as of ${shortDate(t.date.slice(0, 10))}`;
+      const stale = days > 3 ? ' bal-stale' : '';
+      return `<button class="balrow${stale}" type="button" data-acct="${escapeHtml(acct)}">
+        <span class="bal-icon" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <path d="M3 7V6a2 2 0 0 1 2-2h11"/><circle cx="16.5" cy="13" r="1.2"/>
+          </svg>
+        </span>
+        <span class="bal-text">
+          <span class="bal-name">${escapeHtml(ACCOUNT_LABELS[acct] || acct)}</span>
+          <span class="bal-when">${when}</span>
+        </span>
+        <span class="bal-amt">${viz.fmt(t.balance)}</span>
+        <span class="bc-go">\u203a</span>
+      </button>`;
+    })
+    .join('');
+
+  box.querySelectorAll('[data-acct]').forEach((el) => {
+    el.addEventListener('click', () => {
+      state.drillMonth = null;
+      state.drillFrom = null;
+      state.drillTo = null;
+      state.drillClass = null;
+      state.catFilter = 'all';
+      state.dirFilter = 'all';
+      state.search = '';
+      state.acctFilter = el.dataset.acct;
+      state.txnLimit = 150;
+      state.sort = { key: 'date', dir: 'desc' };
+      const box2 = $('#search');
+      if (box2) box2.value = '';
+      render();
+      showView('txns');
+    });
+  });
+}
+
 /** The last seven days as bars, today picked out. */
 function renderSpark(all, todayIso) {
   const days = [];
@@ -3178,6 +3244,7 @@ function renderHome(all) {
     label: `Money in during ${labelNow}`,
   }));
 
+  renderBalances();
   renderSpark(all, todayIso);
   renderHomeBudgets(report, budgeted);
   renderHomeUpcoming(all);
