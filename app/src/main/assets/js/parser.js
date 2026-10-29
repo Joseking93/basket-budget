@@ -13,6 +13,8 @@
 // as "Ksh 2.00 from 1,000.00". Positional groups make that mistake invisible;
 // named ones make it impossible.
 
+import { isMyName } from './config.js';
+
 const CUR = String.raw`(?:Kshs?|KES)\s?`;
 const NUM = String.raw`[\d,]+(?:\.\d{1,2})?`;
 const RECEIPT = String.raw`(?<rcpt>[A-Z0-9]{10})`;
@@ -142,7 +144,7 @@ const PATTERNS = [
     type: 'Savings',
     direction: 'In',
     re: new RegExp(
-      `${CONF}You have transferr?ed ${amt('amt')} (?<dir>to|from) your (?<who>[A-Za-z0-9&\\-. ]+?) account[.\\s]*${AT}`,
+      `${CONF}You have transferr?ed ${amt('amt')} (?<dir>to|from) your (?<who>[A-Za-z0-9&\\-. ]+?) account(?:[.\\s]*${AT})?`,
       'i'
     ),
     after: (t, g) => {
@@ -274,6 +276,54 @@ const BANK_PATTERNS = [
     ),
   },
   {
+    // "Confirmed! You have received KES 16,850.00 from SADIA NYAWIRA HASSAN -
+    //  129****338 at 2026-07-22 10:09:47 AM via KCB." Money into the bank from
+    //  a person — unless the person is him, in which case it is his own money
+    //  moving and must not be counted as anything arriving.
+    type: 'Receive Money',
+    direction: 'In',
+    re: new RegExp(
+      `You have received ${amt('amt')} from (?<who>.+?) at (?<ymd>\\d{4}-\\d{2}-\\d{2}) (?<ymdt>[\\d:]+\\s?[AP]M)`,
+      'i'
+    ),
+    after: (t, g) => {
+      if (isMyName(g.who)) {
+        t.type = 'Internal Transfer';
+        t.counterparty = 'Between my own accounts';
+      }
+    },
+  },
+  {
+    // "Your SEND TO PESALINK request of KES 20,000.00 from 120****913 to
+    //  011****177 - JOSPHAT KINGORI WAMBUGU at 2026-03-07 01:11:11 PM has been
+    //  processed successfully." Money out of the bank to a person.
+    type: 'Bank Payment',
+    direction: 'Out',
+    re: new RegExp(
+      `SEND TO PESALINK request of ${amt('amt')} from \\S+ to (?<who>.+?) at (?<ymd>\\d{4}-\\d{2}-\\d{2}) (?<ymdt>[\\d:]+\\s?[AP]M)`,
+      'i'
+    ),
+  },
+  {
+    // "Your KPLC TOKEN PURCHASE request of KES 1,000.00 from 120****913 to
+    //  KPLC - 37152141497 at 2025-10-01 08:34:06 AM has been processed."
+    //  Electricity, bought from the bank, invisible to the wallet.
+    type: 'Pay Bill',
+    direction: 'Out',
+    re: new RegExp(
+      `(?<who>[A-Z]+) TOKEN PURCHASE request of ${amt('amt')} from \\S+ to [^-]+- ?(?<acct>\\d+) at (?<ymd>\\d{4}-\\d{2}-\\d{2}) (?<ymdt>[\\d:]+\\s?[AP]M)`,
+      'i'
+    ),
+  },
+  {
+    // "Dear Client, transaction of KES 4250.00 to AIRTELMONEY has been
+    //  processed successfully, ref. 13740273116". The same sentence ending in
+    //  MPESA is an echo and never reaches here.
+    type: 'Bank Payment',
+    direction: 'Out',
+    re: new RegExp(`transaction of ${amt('amt')} to (?<who>.+?) has been processed successfully`, 'i'),
+  },
+  {
     // "Dear Client, KES 15086.30 has been credited to your Acc. ending with
     //  7700." Money arriving in the bank that the wallet never sees. The same
     //  sentence ending "from MPESA" is an echo and never reaches here.
@@ -330,7 +380,7 @@ const BANK_PATTERNS = [
     // No date in the text, so it takes the message's own.
     type: 'Bank Deposit',
     direction: 'In',
-    re: new RegExp(`${amt('amt')} has been deposited to Acc\\.? ending with (?<acct>\\d+)`, 'i'),
+    re: new RegExp(`${amt('amt')} has been deposited to Acc\\.? ending (?:with )?(?<acct>\\d+)`, 'i'),
     who: 'Bank deposit',
   },
 ];
@@ -353,6 +403,9 @@ const BANK_ECHOES = [
   /transferr?ed .* to your MPESA Account/i,
   /sent to M-?PESA \d/i,
   /credited to your (?:Acc\.?|account) ending (?:with )?\d+ from M-?PESA/i,
+  /received in (?:Acc\.?|account) ending (?:with )?\d+ from M-?PESA/i,
+  /await M-?PESA notification/i,
+  /BNPL REPAYMENT/i,
   /withdrawn from (?:Acc\.?|account) ending/i,
 
   // Borrowing, tracked through the wallet. The loan is created here and drawn

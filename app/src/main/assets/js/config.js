@@ -5,7 +5,7 @@
  * something you can see rather than something you have to deduce from a bug
  * that will not die.
  */
-export const ASSET_BUILD = '5.7';
+export const ASSET_BUILD = '5.8';
 
 // Who you are, across accounts — held at runtime, NOT written here.
 //
@@ -20,7 +20,7 @@ export const ASSET_BUILD = '5.7';
 // `configure()` fills these in at startup. The exports are live bindings, so every
 // module that imported them sees the update without re-importing.
 
-export const ME = { phones: [], accounts: [] };
+export const ME = { phones: [], accounts: [], name: '' };
 export let PEOPLE = [];
 
 // A send to a person of this much or less is almost always food — the sellers who
@@ -61,6 +61,7 @@ export const DEFAULT_SETTINGS = {
 export function configure(s = {}) {
   ME.phones = (s.phones || []).map(norm).filter(Boolean);
   ME.accounts = (s.accounts || []).map((a) => String(a).trim()).filter(Boolean);
+  ME.name = String(s.name || '').trim();
   PEOPLE = (s.people || []).filter((p) => p && p.number && p.name);
   SMALL_SEND_LIMIT = Number.isFinite(+s.smallSendLimit) ? +s.smallSendLimit : 200;
 }
@@ -87,6 +88,20 @@ export function isSelf(text) {
 }
 
 /** Has the user told us who they are yet? */
+/**
+ * True when a name in a message is HIS name.
+ *
+ * A bank writes the sender's full name and nothing else that distinguishes his
+ * own transfer from someone else's payment. Matched on a word boundary and only
+ * from three letters up: "JOSE" is inside "JOSEPHAT", and filing a relative's
+ * payment as an internal transfer would quietly delete it from the totals.
+ */
+export function isMyName(text) {
+  if (!ME.name || ME.name.length < 3) return false;
+  const safe = ME.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${safe}\\b`, 'i').test(String(text || ''));
+}
+
 export function isConfigured() {
   return ME.phones.length > 0 || ME.accounts.length > 0;
 }
