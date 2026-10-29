@@ -40,6 +40,10 @@ const empty = () => ({
   receipts: [],
   receiptLinks: {},
   rawDropped: 0, // the one-off that freed the stored SMS text
+  // Itemised cash: {id, date, category, amount, items:[{name, amount}], note}.
+  // NOT transactions. The money already counted when it was withdrawn, so these
+  // only say what it went on - see js/cash.js for why that distinction matters.
+  cashRuns: [],
   // LENDER -> the day it last told us a loan of its was finished. Not money, so
   // not a transaction; it is what stops a settled loan being predicted forever.
   settlements: {},
@@ -578,6 +582,39 @@ function dropRawFromSms() {
   if (n) console.info(`Freed the stored message text from ${n} transactions.`);
 }
 
+export function cashRuns() {
+  if (!Array.isArray(state.cashRuns)) state.cashRuns = [];
+  return state.cashRuns;
+}
+
+export function addCashRun(run) {
+  const items = (run.items || []).filter((i) => Number(i.amount) > 0);
+  const amount = items.length
+    ? items.reduce((a, i) => a + Number(i.amount), 0)
+    : Number(run.amount) || 0;
+  if (amount <= 0) return null;
+  const row = {
+    id: run.id || `cash-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    date: run.date || new Date().toISOString().slice(0, 10),
+    category: run.category || 'Groceries',
+    amount,
+    items: items.map((i) => ({ name: String(i.name || '').trim(), amount: Number(i.amount) })),
+    note: run.note || '',
+  };
+  cashRuns().push(row);
+  save();
+  return row;
+}
+
+export function removeCashRun(id) {
+  const list = cashRuns();
+  const i = list.findIndex((r) => r.id === id);
+  if (i < 0) return false;
+  list.splice(i, 1);
+  save();
+  return true;
+}
+
 export function undatedTransactions() {
   return Object.values(state.transactions).filter((t) => !t.date);
 }
@@ -724,6 +761,15 @@ export function ledgerFor(fragment) {
   return { out, in: inn, net: out - inn, count, first, last, mpesa, bank };
 }
 
+/** Every transaction whose counterparty contains this fragment. */
+export function rowsFor(fragment) {
+  const q = String(fragment || '').trim().toLowerCase();
+  if (!q) return [];
+  return Object.values(state.transactions).filter((t) =>
+    `${t.counterparty || ''}`.toLowerCase().includes(q)
+  );
+}
+
 export function seedOnce(rows) {
   if (state.seeded) return { added: 0, duplicate: 0 };
   const res = addTransactions(rows);
@@ -798,6 +844,14 @@ export function importJSON(text) {
   state.splits = { ...state.splits, ...(incoming.splits || {}) };
   state.budgetMonths = { ...state.budgetMonths, ...(incoming.budgetMonths || {}) };
   state.refundLinks = { ...state.refundLinks, ...(incoming.refundLinks || {}) };
+
+  // --- itemised cash: additive, keyed by id. Typed on whichever device was in
+  // your hand at the market, so the union is the only merge that keeps both.
+  if (Array.isArray(incoming.cashRuns)) {
+    const mine = new Map(cashRuns().map((r) => [r.id, r]));
+    for (const r of incoming.cashRuns) mine.set(r.id, r);
+    state.cashRuns = [...mine.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
+  }
 
   // --- payables: merge by id. Money recorded by hand and linked payments are
   // additive (each device may have recorded different ones), so take the union

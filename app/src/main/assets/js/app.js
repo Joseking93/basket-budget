@@ -21,6 +21,8 @@ import { findRecurring, committedMonthly } from './recurring.js';
 import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
+import * as cash from './cash.js';
+import { suggestFor } from './suggest.js';
 import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
 
 const rampFor = (i, n) => viz.rampAt(i, n);
@@ -111,8 +113,29 @@ function decorate(txns) {
     r.why = `offsets ${s.counterparty} (${viz.fmt(s.amount)})`;
     s.offsetBy = (s.offsetBy || 0) + r.amount;
   }
+  // Cash you have itemised re-labels the withdrawal it came out of. It is a
+  // SPLIT rather than a transaction of its own because the money was already
+  // counted as spending when it left the wallet - adding it again would count
+  // the same 430 twice. See js/cash.js.
+  const pocket = cash.allocate(base, store.cashRuns());
+  for (const [id, parts] of pocket.splits) {
+    const t = decorated.get(id);
+    if (!t || t.isSplit) continue; // a split you made by hand outranks this
+    const primary = parts.reduce((a, b) => (b.amount > a.amount ? b : a));
+    t.splits = parts;
+    t.isSplit = true;
+    t.isCashSplit = true;
+    t.category = primary.category;
+    t.why = `cash you itemised: ${parts.map((p) => p.category).join(' + ')}`;
+  }
+
   decorateCache = { rev: store.revision(), n: txns.length, out: [...decorated.values()] };
   return decorateCache.out;
+}
+
+/** What should be in your pocket, from the transactions currently being read. */
+function pocketNow() {
+  return cash.allocate(visible(), store.cashRuns());
 }
 
 // Which name rule actually won, for the explanation.
@@ -287,6 +310,25 @@ function render() {
   $('#filter-count').textContent =
     (filtered ? `${rows.length} of ${txns.length}` : `${txns.length} transactions`) +
     (sums ? ` \u00b7 ${sums}` : '');
+
+  // Categorising row by row here is the slow way round: ninety rows are usually
+  // twenty people, and one pick on a name moves all of that person's at once.
+  // The screen that does it existed already and was three taps away, which is
+  // the same as not existing.
+  const nudge = $('#txn-nudge');
+  if (nudge) {
+    const uncat = rows.filter((t) => t.category === 'Uncategorised');
+    const names = new Set(uncat.map((t) => personName(t.counterparty)).filter(Boolean));
+    const worth = uncat.length >= 6 && names.size < uncat.length;
+    nudge.hidden = !worth;
+    if (worth) {
+      nudge.innerHTML =
+        `<span>${uncat.length} uncategorised rows here — but only <strong>${names.size} people</strong>. ` +
+        `Doing it by name sets every row of theirs at once.</span>` +
+        `<button class="primary" type="button" data-go="triage">Do it by name</button>`;
+      wireViewLinks(nudge);
+    }
+  }
   setBadge('#txn-badge', filtered ? `${rows.length} of ${txns.length}` : `${txns.length}`);
 
   // A drill-down must be obviously undoable, or it looks like the app lost your data.
@@ -1969,10 +2011,16 @@ function renderTriage(txns) {
   // Money coming back from someone is typed "Receive Money" and lands in Income, so
   // counting only uncategorised rows would hide every repayment — and "money came
   // back" is exactly the signal that says this is lending rather than spending.
+  // What the app can work out for itself, per name. Only two things are strong
+  // enough to offer - money that came back, and an answer already given on one
+  // of the rows - and both are explained on the row rather than just applied.
+  const chosen = store.getState().overrides || {};
   const all = [...groups.values()]
     .map((g) => {
       const l = store.ledgerFor(g.name);
-      return { ...g, out: l.out, in: l.in, total: l.count, first: l.first, last: l.last, mpesa: l.mpesa, bank: l.bank };
+      const rows = store.rowsFor(g.name);
+      const tip = suggestFor(rows, (t) => chosen[t.id]);
+      return { ...g, tip, out: l.out, in: l.in, total: l.count, first: l.first, last: l.last, mpesa: l.mpesa, bank: l.bank };
     })
     .sort((a, b) => b.out - a.out);
   const card = $('#triage-card');
@@ -2004,10 +2052,19 @@ function renderTriage(txns) {
   for (const n of [...selected]) if (!present.has(n)) selected.delete(n);
 
   const opts2 = opts.map((o) => `<option>${escapeHtml(o)}</option>`).join('');
+  const sure = shown.filter((g) => g.tip && g.tip.sure);
 
   $('#triage').innerHTML = `
     <p class="hint note"><strong>${all.length} name${all.length === 1 ? '' : 's'}</strong> ·
       ${viz.fmt(totalOut)} unassigned${rest > 0 ? ` · showing the top ${shown.length} (${viz.fmt(shownOut)} of it)` : ''}${split}</p>
+    ${
+      sure.length
+        ? `<div class="bulk-bar tipbar">
+             <strong>${sure.length} name${sure.length === 1 ? '' : 's'} the app can work out</strong>
+             <button id="tip-apply" class="primary">Take them</button>
+           </div>`
+        : ''
+    }
     <div id="bulk-bar" class="bulk-bar" ${selected.size ? '' : 'hidden'}>
       <strong id="bulk-count"></strong>
       <select id="bulk-cat" aria-label="Category for selected names">${opts2}</select>
@@ -2031,7 +2088,7 @@ function renderTriage(txns) {
               ${acctChips(g)}${g.total} txn${g.total === 1 ? '' : 's'}${
                 span(g.first, g.last) ? ` · ${span(g.first, g.last)}` : ''
               }${g.variants.size > 1 ? ` · ${g.variants.size} number variants` : ''}${
-                g.in > 0.5 ? ' · <span class="in">money came back — lending?</span>' : ''
+                g.tip ? ` · <span class="tip">${escapeHtml(g.tip.why)}</span>` : ''
               }
             </div>
           </td>
@@ -2040,7 +2097,7 @@ function renderTriage(txns) {
           <td class="num nowrap" title="${g.last ? new Date(g.last).toLocaleString('en-GB') : ''}">${shortDate(g.last)}</td>
           <td>
             <select class="cat triage-cat" data-name="${escapeHtml(g.name)}">
-              <option value="">— pick —</option>
+              <option value="">${g.tip ? `${escapeHtml(g.tip.category)} ?` : '— pick —'}</option>
               ${opts.map((o) => `<option>${escapeHtml(o)}</option>`).join('')}
             </select>
           </td>
@@ -2061,6 +2118,23 @@ function renderTriage(txns) {
       toast(`“${name}” → ${sel.value}. ${l.count} transaction${l.count === 1 ? '' : 's'} moved.`);
     });
   });
+
+  const take = $('#tip-apply');
+  if (take) {
+    take.addEventListener('click', () => {
+      // Only the ones it is sure about, and each becomes an ordinary name rule
+      // you can see and change in People & name rules - nothing is applied that
+      // you cannot find afterwards and undo.
+      let moved = 0;
+      for (const g of sure) {
+        store.addNameRule(g.name, g.tip.category);
+        moved += store.ledgerFor(g.name).count;
+      }
+      render();
+      renderNameRules();
+      toast(`${sure.length} name${sure.length === 1 ? '' : 's'} assigned · ${moved} transactions moved.`);
+    });
+  }
 
   wireBulk(shown);
 }
@@ -2347,6 +2421,9 @@ function showView(view, push = true) {
   document.querySelectorAll('.view').forEach((v) => {
     v.hidden = v.dataset.view !== target;
   });
+  // Cash is computed, not stored, so it has to be worked out on the way in -
+  // including when you arrive by the back button or a link rather than a tap.
+  if (target === 'cash') renderCash();
   const want = target === 'home' ? ' ' : `#${target}`;
   if (push && location.hash.replace('#', '') !== target && !(target === 'home' && !location.hash)) {
     history.pushState(null, '', want);
@@ -2881,6 +2958,7 @@ async function init() {
   wire();
   wireSettings();
   wireSms();
+  wireCash();
   wireUpdates();
   // Basket's receipts live at this same origin now, so they are simply read.
   pullBasketReceipts();
@@ -3017,7 +3095,30 @@ function renderBalances() {
   }
 
   const today = Date.parse(isoDay(new Date()));
-  box.innerHTML = [...latest.entries()]
+
+  // Cash is not read from a message - no one texts you what is in your pocket.
+  // It is what is left of the money you have drawn out and not yet accounted
+  // for, which is a figure you can check by opening your wallet. That check is
+  // the only thing keeping the rest of it honest, so the card invites it.
+  const pocket = pocketNow();
+  const cashCard = pocket.pocket > 0 || store.cashRuns().length
+    ? `<button class="balrow balrow-cash" type="button" data-cash="1">
+         <span class="bal-icon bal-icon-cash" aria-hidden="true">
+           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+             <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>
+           </svg>
+         </span>
+         <span class="bal-text">
+           <span class="bal-name">Cash in pocket</span>
+           <span class="bal-when">${pocket.since ? `drawn out since ${shortDate(pocket.since)}` : 'nothing drawn out'}</span>
+         </span>
+         <span class="bal-amt">${viz.fmt(pocket.pocket)}</span>
+         <span class="bc-go">\u203a</span>
+       </button>`
+    : '';
+
+  box.innerHTML = cashCard + [...latest.entries()]
     .sort((a, b) => (a[1].date < b[1].date ? 1 : -1))
     .map(([acct, t]) => {
       const days = Math.round((today - Date.parse(t.date.slice(0, 10))) / 86400000);
@@ -3043,6 +3144,9 @@ function renderBalances() {
       </button>`;
     })
     .join('');
+
+  const cashBtn = box.querySelector('[data-cash]');
+  if (cashBtn) cashBtn.addEventListener('click', () => { renderCash(); showView('cash'); });
 
   box.querySelectorAll('[data-acct]').forEach((el) => {
     el.addEventListener('click', () => {
@@ -3177,6 +3281,204 @@ function renderHomeUpcoming(all) {
       dir: 'Out',
       label: `Every payment to ${el.dataset.due}`,
     }));
+  });
+}
+
+/* ---- Cash ---------------------------------------------------------------- */
+
+// What the pad is holding before it is saved. It lives out here because the pad
+// stays open across items - that is the whole design - so it cannot be state
+// that a render rebuilds.
+const pad = { amount: '', items: [], category: 'Groceries', date: null };
+
+function renderCash() {
+  const pocket = pocketNow();
+  $('#cash-pocket').textContent = viz.fmt(pocket.pocket);
+  $('#cash-since').textContent = pocket.since
+    ? `from what you have drawn out since ${shortDate(pocket.since)}`
+    : 'nothing drawn out that is still unaccounted for';
+
+  // Cash spent that no withdrawal covers. Usually change or a gift, occasionally
+  // a withdrawal the app has not read - either way, saying so beats a figure
+  // that quietly does not add up.
+  const un = $('#cash-unmatched');
+  un.hidden = pocket.unmatched <= 0;
+  if (pocket.unmatched > 0) {
+    un.textContent =
+      `${viz.fmt(pocket.unmatched)} of what you typed is not covered by any withdrawal the app has read — ` +
+      'cash from change or a gift, most likely. It is listed below but counts toward nothing.';
+  }
+
+  const runs = [...store.cashRuns()].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const box = $('#cash-runs');
+  if (!runs.length) {
+    box.innerHTML =
+      '<p class="hint">Nothing itemised yet. Every withdrawal still reads as one lump — ' +
+      'adding what it went on does not change what you have spent, only what the app can tell you about it.</p>';
+    return;
+  }
+
+  box.innerHTML = runs
+    .map((r) => {
+      const items = (r.items || []).map((i) => `${escapeHtml(i.name)} ${viz.fmt(i.amount)}`).join(' · ');
+      return `<div class="card cashrun">
+        <div class="cr-line">
+          <div class="cr-grow">
+            <div class="cr-name">${escapeHtml(r.category)}</div>
+            <div class="cr-sub">${shortDate(r.date)}${r.items && r.items.length ? ` · ${r.items.length} item${r.items.length === 1 ? '' : 's'}` : ''}</div>
+          </div>
+          <div class="cr-amt">${viz.fmt(r.amount)}</div>
+          <button class="cr-x" type="button" data-del="${escapeHtml(r.id)}" aria-label="Remove">&times;</button>
+        </div>
+        ${items ? `<div class="cashrun-items">${items}</div>` : ''}
+      </div>`;
+    })
+    .join('');
+
+  box.querySelectorAll('[data-del]').forEach((el) => {
+    el.addEventListener('click', () => {
+      store.removeCashRun(el.dataset.del);
+      render();
+      renderCash();
+    });
+  });
+}
+
+function renderPad() {
+  $('#pad-amount').textContent = pad.amount ? viz.fmt(Number(pad.amount)) : '0';
+  const total = pad.items.reduce((a, i) => a + i.amount, 0);
+  $('#pad-save').textContent = total ? `Done · ${viz.fmt(total)}` : 'Done';
+  $('#pad-save').disabled = !total && !pad.amount;
+
+  $('#pad-list').innerHTML = pad.items.length
+    ? `<div class="card" style="padding:4px 12px 8px">${pad.items
+        .map(
+          (i, n) =>
+            `<div class="cr-line padline"><div class="cr-grow">${escapeHtml(i.name)}</div>` +
+            `<div class="cr-amt">${viz.fmt(i.amount)}</div>` +
+            `<button class="cr-x" type="button" data-rm="${n}" aria-label="Remove">&times;</button></div>`
+        )
+        .join('')}</div>`
+    : '<p class="hint">Type an amount, then tap what it was. It stays open for the next one.</p>';
+
+  $('#pad-list')
+    .querySelectorAll('[data-rm]')
+    .forEach((el) =>
+      el.addEventListener('click', () => {
+        pad.items.splice(Number(el.dataset.rm), 1);
+        renderPad();
+      })
+    );
+
+  const chips = cash.frequentItems(store.cashRuns(), 8);
+  const seed = ['Kale', 'Tomatoes', 'Potatoes', 'Onions', 'Milk', 'Matatu'];
+  const list = chips.length >= 4 ? chips : [...chips, ...seed.filter((x) => !chips.includes(x))].slice(0, 8);
+  $('#pad-chips').innerHTML = list
+    .map((n) => `<button type="button" data-chip="${escapeHtml(n)}">${escapeHtml(n)}</button>`)
+    .join('');
+  $('#pad-chips')
+    .querySelectorAll('[data-chip]')
+    .forEach((el) => el.addEventListener('click', () => commitItem(el.dataset.chip)));
+}
+
+/** Put the typed amount down against a name and clear the keypad for the next one. */
+function commitItem(name) {
+  const amount = Number(pad.amount);
+  if (!amount || !name.trim()) return;
+  pad.items.push({ name: name.trim(), amount });
+  pad.amount = '';
+  $('#pad-name').value = '';
+  renderPad();
+}
+
+function openPad() {
+  pad.amount = '';
+  pad.items = [];
+  pad.date = isoDay(new Date());
+  const sel = $('#pad-cat');
+  sel.innerHTML = cash
+    .cashCategories()
+    .map((c) => `<option${c === pad.category ? ' selected' : ''}>${escapeHtml(c)}</option>`)
+    .join('');
+  $('#pad-date').value = pad.date;
+  renderPad();
+  showView('pad');
+}
+
+function wireCash() {
+  $('#btn-cash-add').addEventListener('click', openPad);
+
+  const countCard = $('#cash-count');
+  $('#btn-cash-count').addEventListener('click', () => {
+    countCard.hidden = !countCard.hidden;
+    if (!countCard.hidden) {
+      $('#cash-counted').value = '';
+      $('#cash-count-says').textContent = '';
+      $('#cash-counted').focus();
+    }
+  });
+
+  $('#btn-cash-counted').addEventListener('click', () => {
+    const counted = Number($('#cash-counted').value);
+    if (!Number.isFinite(counted) || counted < 0) return;
+    const pocket = pocketNow();
+    const gap = Math.round(pocket.pocket - counted);
+    if (gap === 0) {
+      $('#cash-count-says').textContent = 'It matches. Nothing to record.';
+      return;
+    }
+    if (gap < 0) {
+      // More than the app knows about. Inventing a withdrawal to cover it would
+      // put money into the totals that never passed through any account, so it
+      // is said out loud and left alone.
+      $('#cash-count-says').textContent =
+        `You have ${viz.fmt(-gap)} more than the app can account for. That cash came from somewhere ` +
+        'it has never seen — change, or a gift — so it is not added to any total.';
+      return;
+    }
+    store.addCashRun({
+      date: isoDay(new Date()),
+      category: cash.UNACCOUNTED_CATEGORY,
+      items: [{ name: 'Counted short', amount: gap }],
+    });
+    render();
+    renderCash();
+    countCard.hidden = true;
+    toast(`${viz.fmt(gap)} recorded as cash spent without a record.`);
+  });
+
+  $('#pad-cat').addEventListener('change', (e) => {
+    pad.category = e.target.value;
+  });
+  $('#pad-date').addEventListener('change', (e) => {
+    pad.date = e.target.value || isoDay(new Date());
+  });
+
+  $('#pad-keys').addEventListener('click', (e) => {
+    const k = e.target.closest('[data-k]');
+    if (!k) return;
+    const key = k.dataset.k;
+    if (key === 'del') pad.amount = pad.amount.slice(0, -1);
+    else if (pad.amount.length < 7) pad.amount = (pad.amount + key).replace(/^0+(?=\d)/, '');
+    renderPad();
+  });
+
+  $('#pad-add').addEventListener('click', () => commitItem($('#pad-name').value));
+  $('#pad-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commitItem($('#pad-name').value);
+  });
+
+  $('#pad-save').addEventListener('click', () => {
+    // An amount typed but never named is still money spent, so it is kept rather
+    // than thrown away for want of a label.
+    if (pad.amount) commitItem('Cash');
+    if (!pad.items.length) return;
+    const run = store.addCashRun({ date: pad.date, category: pad.category, items: pad.items });
+    if (!run) return;
+    render();
+    renderCash();
+    showView('cash');
+    toast(`${viz.fmt(run.amount)} itemised against your cash.`);
   });
 }
 

@@ -168,6 +168,7 @@
     </section>
     <section class="rowgroup">
       <h3>Money</h3>
+      <button class="navrow" type="button" data-go="cash"><span class="navrow-t">Cash</span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="navrow" type="button" data-go="debts" id="debts-card"><span class="navrow-t">What I owe</span><span id="debts-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="navrow" type="button" data-go="fuliza" id="fuliza-card"><span class="navrow-t">Fuliza &amp; borrowing</span><span id="fuliza-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="navrow" type="button" data-go="balance" id="balance-card"><span class="navrow-t">Balance over time</span><span id="balance-badge" class="badge"></span><svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
@@ -418,6 +419,97 @@
     </div>
   </section>
 
+  <!-- Cash. The money that leaves the wallet and stops being traceable, which
+       until now was a single lump per withdrawal with nothing said about it. -->
+  <section class="view" data-view="cash" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1>Cash</h1>
+    </header>
+
+    <section class="card cash-hero">
+      <p class="cash-lede">Should be in your pocket</p>
+      <p class="cash-big" id="cash-pocket">0</p>
+      <p class="cash-since" id="cash-since"></p>
+    </section>
+
+    <div class="cash-acts">
+      <button class="primary" type="button" id="btn-cash-add">Add spending</button>
+      <button class="ghost" type="button" id="btn-cash-count">Count it</button>
+    </div>
+
+    <section class="card" id="cash-count" hidden>
+      <h3>How much is actually there?</h3>
+      <p class="hint">Count your wallet. Anything missing was spent in cash without
+        being recorded, so it goes down as spending you have not named. Anything extra
+        is cash from somewhere this app never saw.</p>
+      <div class="cash-countrow">
+        <input type="number" id="cash-counted" inputmode="numeric" min="0" step="1" placeholder="0">
+        <button class="primary" type="button" id="btn-cash-counted">Save</button>
+      </div>
+      <p class="hint" id="cash-count-says"></p>
+    </section>
+
+    <p class="hint" id="cash-unmatched" hidden></p>
+
+    <h3 class="cash-sec">What the cash went on</h3>
+    <div id="cash-runs"></div>
+  </section>
+
+  <!-- The pad. Amount first, then tap what it was: four taps for 100 of kale,
+       and it stays open for the next one. A market run is one sitting. -->
+  <section class="view" data-view="pad" hidden>
+    <header class="viewbar">
+      <button class="back" type="button" aria-label="Back">
+        <svg width="9" height="15" viewBox="0 0 8 13" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M6.5 1.5L1.5 6.5L6.5 11.5"/></svg>
+      </button>
+      <h1 id="pad-title">Cash spending</h1>
+    </header>
+
+    <div class="padwrap">
+      <div class="padlist" id="pad-list"></div>
+
+      <div class="padfoot">
+        <div class="padrow">
+          <select id="pad-cat" aria-label="Category"></select>
+          <input type="date" id="pad-date" aria-label="Date">
+        </div>
+
+        <div class="padamt"><span>KSh</span><b id="pad-amount">0</b></div>
+
+        <div class="padchips" id="pad-chips"></div>
+
+        <div class="padrow">
+          <input type="text" id="pad-name" placeholder="or type what it was" autocomplete="off">
+          <button class="ghost" type="button" id="pad-add">Add</button>
+        </div>
+
+        <div class="padkeys" id="pad-keys">
+          <button type="button" data-k="1">1</button>
+          <button type="button" data-k="2">2</button>
+          <button type="button" data-k="3">3</button>
+          <button type="button" data-k="4">4</button>
+          <button type="button" data-k="5">5</button>
+          <button type="button" data-k="6">6</button>
+          <button type="button" data-k="7">7</button>
+          <button type="button" data-k="8">8</button>
+          <button type="button" data-k="9">9</button>
+          <button type="button" data-k="del">&#9003;</button>
+          <button type="button" data-k="0">0</button>
+          <button type="button" data-k="00">00</button>
+        </div>
+
+        <button class="primary padsave" type="button" id="pad-save">Done</button>
+      </div>
+    </div>
+  </section>
+
   <section class="view" data-view="txns" hidden>
     <header class="viewbar">
       <button class="back" type="button" aria-label="Back">
@@ -440,6 +532,7 @@
       <select id="acct-filter" aria-label="Filter by account"><option value="all">All accounts</option></select>
       <span id="filter-count" class="hint"></span>
     </div>
+    <div id="txn-nudge" class="nudge" hidden></div>
     <div id="drill-chip" class="drill-chip" hidden></div>
     <div id="table-txns" class="scroll"></div>
     </div>

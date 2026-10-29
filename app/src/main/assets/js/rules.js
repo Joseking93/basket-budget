@@ -45,6 +45,9 @@ export const CATEGORIES = {
   Entertainment: { class: CLASSES.SPENDING },
   Shopping: { class: CLASSES.SPENDING },
   'Cash Withdrawal': { class: CLASSES.SPENDING },
+  // What a count found missing: cash that went somewhere you did not record.
+  // Spending, because it plainly was - naming it is the only thing left undone.
+  'Cash (unaccounted)': { class: CLASSES.SPENDING },
   'Government & Fees': { class: CLASSES.SPENDING },
   'Sent to People': { class: CLASSES.SPENDING },
   // Not a guess — an admission. Money genuinely left, so it still counts as spending
@@ -169,7 +172,12 @@ const BUILT_IN = [
 
   // Income proper: money from outside your own accounts.
   // An inbound international transfer (remittance) is external money arriving.
-  { type: /^(Salary Payment|Receive Money|Deposit|International Transfer)$/i, category: 'Income' },
+  { type: /^(Salary Payment|Receive Money|International Transfer)$/i, category: 'Income' },
+  // Your own cash going back in at an agent. It was never earnings - counting it
+  // as income inflated both sides of the ledger, and the matching 'Cash Deposit'
+  // type two rules down had always called it a transfer, so the app disagreed
+  // with itself depending on which wording Safaricom used.
+  { type: /^Deposit$/i, category: 'Internal Transfer' },
 
   // Banks and SACCOs — money moving between your own rails, in either direction.
   // Must sit after the loan rules so "KCB M-PESA" (a loan) isn't caught by /KCB/.
