@@ -3115,6 +3115,11 @@ const THEME_KEY = 'budget-theme';
 
 function applyTheme(mode) {
   document.documentElement.dataset.theme = mode;
+  // The inline script in <head> paints html before the stylesheet arrives, to
+  // stop the flash. That inline style then OUTRANKS the stylesheet, so switching
+  // the theme left the page colour behind - a strip of the old theme across the
+  // top of the new one. Hand control back now that the stylesheet is here.
+  document.documentElement.style.background = '';
   $('#btn-theme').textContent = mode === 'dark' ? '◑' : '◐';
   try {
     localStorage.setItem(THEME_KEY, mode);
@@ -3236,7 +3241,7 @@ function wireSms() {
   // The inbox arrives in batches, so the tally is kept across them and the
   // page is only re-rendered once at the end.
   let tally = { added: 0, duplicate: 0, unparsed: [], ignored: 0 };
-  window.onSmsBatch = (text, done, found, truncated) => {
+  window.onSmsBatch = (text, done, found, truncated, newestAt) => {
     if (text) {
       const { transactions, unparsed, ignored } = parseMessages(text);
       const counts = store.addTransactions(transactions);
@@ -3264,6 +3269,17 @@ function wireSms() {
     if (tally.added && tally.duplicate) msg += ` ${n(tally.duplicate)} were already on file.`;
     if (tally.unparsed.length) msg += ` ${n(tally.unparsed.length)} not recognised \u2014 see below.`;
     if (truncated) msg += ' This phone holds more than the app reads in one go; run it again for the rest.';
+    // The age of the inbox itself. A read that brings in thousands of messages
+    // and leaves the app looking empty is either a parser problem or an inbox
+    // that stops before the window starts, and these are not the same problem.
+    if (newestAt) {
+      const when = new Date(Number(newestAt)).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      msg += ` The newest M-PESA message on this phone is from ${when}.`;
+    }
     note.textContent = msg;
     // Nothing new is the normal outcome of a re-read, not a warning.
     toast(msg, truncated ? 'warn' : 'ok');

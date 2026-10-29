@@ -522,7 +522,7 @@ class MainActivity : ComponentActivity() {
                     prefs.edit().putLong(KEY_NEWEST_SMS, batch.newest).apply()
                 }
                 if (quiet && batch.messages.isEmpty()) return@runOnUiThread
-                deliverSms(batch.messages, batch.truncated)
+                deliverSms(batch.messages, batch.truncated, batch.newest)
             }
         }.start()
     }
@@ -531,9 +531,9 @@ class MainActivity : ComponentActivity() {
      * In batches, because one evaluateJavascript carrying a whole inbox is a
      * single enormous string across a process boundary and can simply fail.
      */
-    private fun deliverSms(messages: List<String>, truncated: Boolean = false) {
+    private fun deliverSms(messages: List<String>, truncated: Boolean = false, newest: Long = 0L) {
         if (messages.isEmpty()) {
-            runJs("window.onSmsBatch && window.onSmsBatch('', true, 0, false);")
+            runJs("window.onSmsBatch && window.onSmsBatch('', true, 0, false, 0);")
             return
         }
         val chunks = messages.chunked(SMS_CHUNK)
@@ -541,8 +541,12 @@ class MainActivity : ComponentActivity() {
             val text = JSONObject.quote(chunk.joinToString(BLANK_LINE))
             val last = index == chunks.size - 1
             runJs(
+                // The newest message's own timestamp goes over too. When a read
+                // brings in thousands and the app still looks empty, the only
+                // question worth asking is how recent the INBOX is, and nothing
+                // could answer it without going to look in another app.
                 "window.onSmsBatch && window.onSmsBatch(" + text + ", " + last + ", " +
-                    messages.size + ", " + truncated + ");"
+                    messages.size + ", " + truncated + ", " + newest + ");"
             )
         }
     }

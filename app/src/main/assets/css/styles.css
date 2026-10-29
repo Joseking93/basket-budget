@@ -39,9 +39,16 @@
   --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
 
+/* Transparent on purpose, and it matters.
+   Until html carried a background of its own, BODY's background was propagated
+   up to the canvas and body painted no box at all - which is why the engraving,
+   fixed at z-index -1, was visible through it. Giving html a background (to kill
+   the black flash on load) stopped that propagation, so body started painting
+   its own opaque box and covered the engraving completely. html owns the page
+   colour now; body stays out of the way. */
 body {
   margin: 0;
-  background: var(--bg);
+  background: transparent;
   color: var(--ink);
   font: 15px/1.55 var(--body);
   -webkit-font-smoothing: antialiased;
