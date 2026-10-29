@@ -197,6 +197,33 @@ h4 { font-size: 13px; font-weight: 600; }
 
 .kpi-aside { margin: -4px 0 0; text-align: center; }
 
+/* ── The menu ─────────────────────────────────────────────── */
+.scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0, 0, 0, .28);
+}
+.menu {
+  position: fixed; z-index: 41;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  width: min(260px, calc(100vw - 24px));
+  display: flex; flex-direction: column;
+  background: var(--shell); border: 1px solid var(--shell-line);
+  border-radius: var(--r-lg); padding: 6px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+}
+.menurow {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 12px; border: 0; background: none; border-radius: var(--r-sm);
+  font: inherit; font-weight: 500; color: var(--ink); text-align: left;
+}
+.menurow > :first-child { flex: 1 1 auto; }
+.menurow:hover { background: var(--card-3); border: 0; }
+.menu hr { border: 0; border-top: 1px solid var(--card-line); margin: 5px 8px; }
+.menu-icon { color: var(--tint); font-size: 15px; }
+.menu-ver { margin: 7px 12px 4px; font-size: 11px; color: var(--muted); }
+
 /* ── Views ─────────────────────────────────────────────────── */
 /* The page used to be nineteen collapsible cards stacked on top of each other,
    which on a phone is several thousand pixels of other people's business before

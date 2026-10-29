@@ -2381,6 +2381,43 @@ function wireWindow() {
   });
 }
 
+/**
+ * The menu in the corner: the things that are setup rather than money.
+ *
+ * They were all reachable before, two taps down behind "Everything else" -
+ * which is the right place for a report and the wrong one for "add a category".
+ */
+function wireMenu() {
+  const btn = $('#btn-menu');
+  const menu = $('#menu');
+  const scrim = $('#menu-scrim');
+  if (!btn || !menu) return;
+
+  const show = (open) => {
+    menu.hidden = !open;
+    if (scrim) scrim.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    const ver = $('#menu-version');
+    if (open && ver) {
+      // window.Android directly: `bridge` is a local inside two other
+      // functions, and reaching for it here was a ReferenceError that only
+      // showed up as a silently empty line.
+      const a = window.Android;
+      const v = a && a.appVersion ? a.appVersion() : null;
+      ver.textContent = v ? `Version ${v}` : `Pages ${ASSET_BUILD}`;
+    }
+  };
+
+  btn.addEventListener('click', () => show(menu.hidden));
+  if (scrim) scrim.addEventListener('click', () => show(false));
+  // Every row closes it: a menu you have to dismiss as well as choose from is
+  // one more tap than anyone wants.
+  menu.querySelectorAll('button').forEach((el) => el.addEventListener('click', () => show(false)));
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') show(false);
+  });
+}
+
 function wireViews() {
   wireViewLinks(document);
   document.querySelectorAll('.back').forEach((b) => {
@@ -2820,6 +2857,7 @@ async function init() {
   // suffix scheme, so one row survived dedupe as a phantom. Statements are the
   // source of truth; the app starts empty and you import.
   wireViews();
+  wireMenu();
   wireWindow();
   wire();
   wireSettings();
@@ -2925,6 +2963,11 @@ function wireBehind(el, get) {
   const go = (e) => {
     // An Upcoming card has its own link inside it; let that win.
     if (e.target.closest('[data-go]') && e.target.closest('[data-go]') !== el) return;
+    // The chips sit INSIDE the gauge card, and both are openable - without
+    // this a tap on RECEIVED ran its own handler and then the card's, and the
+    // filters ended up a mixture of the two: "spending only / in only", which
+    // can never match anything.
+    e.stopPropagation();
     openBehind(get());
   };
   el.addEventListener('click', go);
@@ -3249,7 +3292,13 @@ function applyTheme(mode) {
   // the theme left the page colour behind - a strip of the old theme across the
   // top of the new one. Hand control back now that the stylesheet is here.
   document.documentElement.style.background = '';
-  $('#btn-theme').textContent = mode === 'dark' ? '◑' : '◐';
+  // The theme control is a row in the menu now, so the icon and the words go
+  // into their own spans rather than replacing the button's whole contents.
+  // Both say what tapping it GIVES you, not where you are.
+  const icon = $('#theme-icon');
+  const label = $('#theme-label');
+  if (icon) icon.textContent = mode === 'dark' ? '☀' : '☾';
+  if (label) label.textContent = mode === 'dark' ? 'Light appearance' : 'Dark appearance';
   try {
     localStorage.setItem(THEME_KEY, mode);
   } catch (e) {

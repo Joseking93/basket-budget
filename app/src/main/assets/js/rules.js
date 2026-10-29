@@ -60,6 +60,12 @@ export const CATEGORIES = {
   'Loans & Credit': { class: CLASSES.TRANSFER },
   'Bank Transfers': { class: CLASSES.TRANSFER },
   'Savings & Investment': { class: CLASSES.TRANSFER },
+  // Buying land. Not consumption: the money becomes an asset, and in Jose's
+  // case it is paying down a plot already on the debts list - so counting it as
+  // spending would put 800,000 into a month's groceries-and-fuel figure and
+  // bury everything else. Named on its own line so it is still visible.
+  'Land & Plots': { class: CLASSES.TRANSFER },
+
   // Money you lend to people and expect back. Not spending — it's an asset you're
   // owed — and the repayment isn't income, it's your own money returning. Tagging a
   // person with this catches BOTH directions, and the People ledger nets them off to
@@ -169,6 +175,11 @@ const BUILT_IN = [
   // Must sit after the loan rules so "KCB M-PESA" (a loan) isn't caught by /KCB/.
   { match: /Equity|NCBA|KCB|Stanbic|Co-?\s?operative Bank|Standard Chartered|SBM Bank|ABSA|DTB|Family Bank|I&M|IM BANK|SACCO|Bank via API|B2C/i, category: 'Bank Transfers' },
   { type: /^Business Payment$/i, category: 'Bank Transfers' },
+
+  // Buying land, above the housing rule - a land vendor's name often carries
+  // "PROPERTIES" or "REAL ESTATE", and that rule would file the purchase as
+  // rent. Kept to named vendors and the word PLOT rather than anything looser.
+  { match: /QUEST REALTY|\bPLOT\b|LAND REGISTR|TITLE DEED/i, category: 'Land & Plots' },
 
   // Rent & housing
   { match: /NYUMBA LINK|REAL ESTATE|PROPERT|APARTMENT|COURT \d|RENT/i, category: 'Rent & Housing' },

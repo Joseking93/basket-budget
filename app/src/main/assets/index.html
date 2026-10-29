@@ -32,8 +32,30 @@
         <p class="today" id="home-today"></p>
         <h1 id="home-greet">Hello</h1>
       </div>
-      <button id="btn-theme" class="ghost themebtn" title="Switch between light and dark">&#9680;</button>
+      <button id="btn-menu" class="ghost themebtn" aria-haspopup="true" aria-expanded="false"
+              aria-controls="menu" title="Settings and setup">
+        <svg width="17" height="13" viewBox="0 0 18 14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M1 1h16M1 7h16M1 13h16"/>
+        </svg>
+      </button>
     </div>
+
+    <div id="menu-scrim" class="scrim" hidden></div>
+    <nav id="menu" class="menu" hidden aria-label="Settings and setup">
+      <button id="btn-theme" class="menurow" type="button">
+        <span id="theme-label">Dark appearance</span>
+        <span id="theme-icon" class="menu-icon">&#9680;</span>
+      </button>
+      <hr>
+      <button class="menurow" type="button" data-go="intake">Add transactions<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="menurow" type="button" data-go="cats">Categories<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="menurow" type="button" data-go="people">People &amp; name rules<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="menurow" type="button" data-go="budget">Budget<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="menurow" type="button" data-go="settings">Who you are<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <button class="menurow" type="button" data-go="data">Data &amp; sync<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
+      <p class="menu-ver" id="menu-version"></p>
+    </nav>
 
     <!-- Filled only when the app is holding transactions it is not reading. A
          screen of honest zeros is indistinguishable from a broken one. -->
