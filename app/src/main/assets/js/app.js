@@ -3331,9 +3331,8 @@ function wireBehind(el, get) {
  * balance is the latest one that exists - narrowing the window should change
  * what you are looking at, never what you have.
  */
-function renderBalances() {
-  const box = $('#balances');
-  if (!box) return;
+/** The most recent message that carried a balance, per account. */
+function latestBalances() {
   const latest = new Map();
   for (const t of store.allTransactions()) {
     if (t.balance == null || !t.date) continue;
@@ -3341,6 +3340,101 @@ function renderBalances() {
     const seen = latest.get(acct);
     if (!seen || t.date > seen.date) latest.set(acct, t);
   }
+  return latest;
+}
+
+/** A wallet opens its own account; cash opens the pocket. */
+function wireWallets(box) {
+  const cashBtn = box.querySelector('[data-cash]');
+  if (cashBtn) cashBtn.addEventListener('click', () => { renderCash(); showView('cash'); });
+
+  box.querySelectorAll('[data-acct]').forEach((el) => {
+    el.addEventListener('click', () => {
+      state.drillMonth = null;
+      state.drillFrom = null;
+      state.drillTo = null;
+      state.drillClass = null;
+      state.drillCats = null;
+      state.drillBudget = null;
+      state.catFilter = 'all';
+      state.dirFilter = 'all';
+      state.search = '';
+      state.acctFilter = el.dataset.acct;
+      state.txnLimit = 150;
+      state.sort = { key: 'date', dir: 'desc' };
+      const box2 = $('#search');
+      if (box2) box2.value = '';
+      render();
+      showView('txns');
+    });
+  });
+}
+
+/**
+ * Minted only: what you HAVE, above what you have spent.
+ *
+ * The screen has always led with the budget, which is a target. This leads
+ * with the money actually in your hands, which is a fact - and it was four
+ * scrolls down in a rail before. The wallets it is made of sit under it and
+ * still open their own accounts, so nothing is lost by the rail going.
+ *
+ * It is only ever as complete as the accounts the app has been told about,
+ * which is why it says how many it counted and how old the oldest reading
+ * is: one wallet read today does not make a total from last week current.
+ */
+function renderBalanceTop() {
+  const box = $('#bal-top');
+  if (!box) return;
+  const hide = () => { box.hidden = true; box.innerHTML = ''; };
+  if (lookNow() !== 'minted') return hide();
+
+  const today = Date.parse(isoDay(new Date()));
+  const parts = [];
+  const pocket = pocketNow();
+  if (pocket.pocket > 0 || store.cashRuns().length) {
+    parts.push({
+      name: 'Cash in pocket', amount: pocket.pocket, icon: emojiOf('cash'),
+      attr: 'data-cash="1"', days: 0,
+    });
+  }
+  for (const [acct, t] of [...latestBalances().entries()]
+    .sort((x, y) => (x[1].date < y[1].date ? 1 : -1))) {
+    parts.push({
+      name: ACCOUNT_LABELS[acct] || acct,
+      amount: t.balance,
+      icon: emojiOf('card'),
+      attr: `data-acct="${escapeHtml(acct)}"`,
+      days: Math.round((today - Date.parse(t.date.slice(0, 10))) / 86400000),
+    });
+  }
+  if (!parts.length) return hide();
+
+  const total = parts.reduce((sum, w) => sum + w.amount, 0);
+  const oldest = Math.max(...parts.map((w) => w.days));
+  const when = oldest <= 0 ? 'as of today'
+    : oldest === 1 ? 'as of yesterday'
+      : `oldest reading ${oldest} days old`;
+  box.hidden = false;
+  box.innerHTML = `
+    <p class="bt-lab">Money I have</p>
+    <p class="bt-big">${viz.fmt(total)}</p>
+    <p class="bt-sub">across ${parts.length} wallet${parts.length === 1 ? '' : 's'} &middot; ${when}</p>
+    <div class="bt-chips">${parts.map((w) => `
+      <button class="wchip${w.days > 3 ? ' stale' : ''}" type="button" ${w.attr}>
+        <i aria-hidden="true">${w.icon}</i>
+        <span class="wc-text">
+          <b>${viz.fmt(w.amount)}</b>
+          <span>${escapeHtml(w.name)}</span>
+        </span>
+      </button>`).join('')}</div>`;
+  wireWallets(box);
+  return undefined;
+}
+
+function renderBalances() {
+  const box = $('#balances');
+  if (!box) return;
+  const latest = latestBalances();
 
   const today = Date.parse(isoDay(new Date()));
 
@@ -3393,29 +3487,7 @@ function renderBalances() {
     })
     .join('');
 
-  const cashBtn = box.querySelector('[data-cash]');
-  if (cashBtn) cashBtn.addEventListener('click', () => { renderCash(); showView('cash'); });
-
-  box.querySelectorAll('[data-acct]').forEach((el) => {
-    el.addEventListener('click', () => {
-      state.drillMonth = null;
-      state.drillFrom = null;
-      state.drillTo = null;
-      state.drillClass = null;
-      state.drillCats = null;
-      state.drillBudget = null;
-      state.catFilter = 'all';
-      state.dirFilter = 'all';
-      state.search = '';
-      state.acctFilter = el.dataset.acct;
-      state.txnLimit = 150;
-      state.sort = { key: 'date', dir: 'desc' };
-      const box2 = $('#search');
-      if (box2) box2.value = '';
-      render();
-      showView('txns');
-    });
-  });
+  wireWallets(box);
 }
 
 /** The last seven days as bars, today picked out. */
@@ -3459,6 +3531,42 @@ function renderSpark(all, todayIso) {
  * in the line's own NAME, so a budget called "Shopping & gifts" still finds
  * one and a renamed line does not go blank.
  */
+/**
+ * The four biggest categories of the cycle, written out under the ring.
+ *
+ * The ring answers "how much OF it"; a figure you can read answers "how
+ * much". The dial on each card is that category's share of the cycle, which
+ * is the same thing its slice is saying, so the two halves of the card agree
+ * with the two halves of the screen.
+ */
+function renderHeroCats(rows, slotOf, glyphs, month) {
+  const box = $('#hero-cats');
+  if (!box) return;
+  const total = rows.reduce((sum, r) => sum + r.total, 0);
+  if (!rows.length || total <= 0) {
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = rows.slice(0, 4).map((r) => {
+    const pct = r.total / total;
+    const colour = viz.seriesColour(slotOf(r.category));
+    // The folded row stands for several categories, so it opens all of them.
+    const opens = r.rest
+      ? `data-drill-cats="${escapeHtml(r.rest.join('|'))}" data-drill-label="${escapeHtml(r.category)}"`
+      : `data-drill-cat="${escapeHtml(r.category)}"`;
+    return `<button class="hcat" type="button" ${opens}>
+      <span class="hc-dial">${tileDial(pct, colour)}
+        <em>${emojiOf(glyphs[r.category] || glyphFor(r.category))}</em></span>
+      <span class="hc-text">
+        <span class="hc-name">${escapeHtml(r.category)}</span>
+        <span class="hc-pct">${Math.round(pct * 100)}%</span>
+        <span class="hc-amt">${viz.fmt(r.total)}</span>
+      </span>
+    </button>`;
+  }).join('');
+  wireDrill(box, month);
+}
+
 /** The little ring around a tile's icon: how far through the line you are. */
 function tileDial(pct, colour) {
   const R = 16;
@@ -4104,17 +4212,23 @@ function renderHome(all) {
       const hslots = store.chartSlots([...hrows.map((r) => r.category), viz.REST_LABEL]);
       // Resolved over the whole ring at once, so two slices never share one.
       const hglyphs = glyphMap(hrows.map((r) => r.category));
+      // 7% is about what a slice needs before its name has somewhere to point
+      // without landing on its neighbour's line.
       viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, {
         middle: false,
         legend: false,
         hero: true,
-        iconOf: (c) => emojiOf(hglyphs[c] || glyphFor(c)),
+        labels: 0.07,
       });
       wireDrill(ringBox, month);
+      renderHeroCats(hrows, (c) => hslots[c] ?? 7, hglyphs, month);
     } else {
       ringBox.innerHTML = '';
+      renderHeroCats([], null, null, month);
     }
   }
+  const gaugeEl = document.querySelector('.gauge');
+  if (gaugeEl) gaugeEl.classList.toggle('named', mint);
 
   // Where the cycle has got to, against where the money has got to. Only
   // minted shows it: the standard look says the same thing in the arc.
@@ -4161,6 +4275,7 @@ function renderHome(all) {
     /* an older build without the bridge */
   }
 
+  renderBalanceTop();
   renderBalances();
   renderSpark(all, todayIso);
   renderHomeBudgets(report, budgeted, month);

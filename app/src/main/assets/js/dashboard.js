@@ -541,20 +541,36 @@ const drillAttr = (r) =>
  *                             Square ends cost nothing and give them back.
  * @param {Function} o.iconOf  category -> the one character to sit on a disc
  *                             on its slice.
+ * @param {number}   o.labels  name every slice worth at least this share of
+ *                             the total, in the margin beside it, on a leader
+ *                             line. The ring is drawn smaller to pay for the
+ *                             margins, so this is for a ring that is the
+ *                             whole card rather than one sharing it.
  */
 export function renderDonut(
   el,
   rows,
   slotOf,
-  { label = 'spent', middle = true, legend = true, ring = true, hero = false, iconOf = null } = {},
+  {
+    label = 'spent', middle = true, legend = true, ring = true, hero = false,
+    iconOf = null, labels = 0,
+  } = {},
 ) {
   if (!rows.length || rows.reduce((a, r) => a + r.total, 0) <= 0) {
     el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
     return;
   }
 
-  const R = 52;
-  const W = hero ? 13 : 16;
+  // Naming the slices costs the ring its size: the names are drawn INSIDE the
+  // viewBox, so the box grows sideways and the circle shrinks to leave them
+  // room. A name that does not fit is simply cut off by the box, which is how
+  // the first draft lost the first word of "Family & support".
+  const named = labels > 0;
+  const R = named ? 38 : 52;
+  const W = named || hero ? 13 : 16;
+  const CX = named ? 115 : 60;
+  const CY = named ? 72 : 60;
+  const BOX = named ? '0 0 230 148' : '0 0 120 120';
   // Big enough for a glyph to be legible once the ring is drawn at phone size,
   // small enough that eight of them fit round the circle.
   const PIN_R = 9.5;
@@ -575,7 +591,7 @@ export function renderDonut(
       const dash = `${len} ${C - len}`;
       const offset = -at;
       at += (r.total / total) * C;
-      return `<circle class="ring-arc" cx="60" cy="60" r="${R}" fill="none"
+      return `<circle class="ring-arc" cx="${CX}" cy="${CY}" r="${R}" fill="none"
                  stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
                  stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
                  ${drillAttr(r)}><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
@@ -593,8 +609,40 @@ export function renderDonut(
   // 6.4% apiece still fill only half the circle, so there is always somewhere
   // to spread into. A disc that has moved off its own arc carries its own
   // filter, so the tap still opens the category the icon is for.
+  // The names, in the margins, each on a line back to its own slice. Only the
+  // slices worth naming get one: five labels is already most of the height of
+  // the box, and the rest are written out underneath or on the cards.
+  let leads = '';
+  if (named) {
+    let seen = 0;
+    for (const r of rows) {
+      const share = r.total / total;
+      if (share >= labels) {
+        const a = (seen + share / 2) * 2 * Math.PI - Math.PI / 2;
+        const right = Math.cos(a) >= 0;
+        const x1 = CX + Math.cos(a) * (R + W / 2);
+        const y1 = CY + Math.sin(a) * (R + W / 2);
+        const x2 = CX + Math.cos(a) * (R + W / 2 + 7);
+        const y2 = CY + Math.sin(a) * (R + W / 2 + 7);
+        const x3 = right ? x2 + 9 : x2 - 9;
+        const tx = (right ? x3 + 3 : x3 - 3).toFixed(1);
+        // Clipped to what the margin holds, not to what the box holds.
+        const name = r.category.length > 17 ? `${r.category.slice(0, 16).trimEnd()}\u2026` : r.category;
+        leads += `<g ${drillAttr(r)}>
+            <path class="ring-lead" d="M${x1.toFixed(1)} ${y1.toFixed(1)}
+              L${x2.toFixed(1)} ${y2.toFixed(1)} L${x3.toFixed(1)} ${y2.toFixed(1)}"/>
+            <text class="ring-lname" x="${tx}" y="${(y2 - 1).toFixed(1)}"
+                  text-anchor="${right ? 'start' : 'end'}">${esc(name)}</text>
+            <text class="ring-lsub" x="${tx}" y="${(y2 + 6).toFixed(1)}"
+                  text-anchor="${right ? 'start' : 'end'}">${Math.round(share * 100)}% &#183; ${fmt(r.total)}</text>
+          </g>`;
+      }
+      seen += share;
+    }
+  }
+
   let pins = '';
-  if (iconOf && rows.length) {
+  if (iconOf && !named && rows.length) {
     const SEP = (2 * PIN_R + 1.6) / C;
     // A slice carries an icon when the slice is at least as wide as the icon.
     // Below that it is a sliver: the disc would be wider than the colour it
@@ -632,8 +680,8 @@ export function renderDonut(
     }
     show.forEach(({ row: r }, i) => {
       const a = (at[i] * 2 - 0.5) * Math.PI;
-      const x = 60 + Math.cos(a) * R;
-      const y = 60 + Math.sin(a) * R;
+      const x = CX + Math.cos(a) * R;
+      const y = CY + Math.sin(a) * R;
       pins += `<g class="ring-pin" ${drillAttr(r)}>
           <title>${esc(r.category)}: ${fmt(r.total)}</title>
           <circle class="ring-pin-disc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${PIN_R}"/>
@@ -662,8 +710,8 @@ export function renderDonut(
 
   el.innerHTML = `
     ${!ring ? '' : `<div class="ring-wrap">
-      <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Spending by category">
-        <g transform="rotate(-90 60 60)">${arcs}</g>${pins}
+      <svg class="ring" viewBox="${BOX}" role="img" aria-label="Spending by category">
+        <g transform="rotate(-90 ${CX} ${CY})">${arcs}</g>${pins}${leads}
       </svg>
       ${middle ? `<div class="ring-mid">
         <span class="ring-total">${fmt(total)}</span>
