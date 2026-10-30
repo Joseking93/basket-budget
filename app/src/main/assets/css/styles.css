@@ -1053,6 +1053,10 @@ tr.is-stale { opacity: .55; }
   #nr-list, #cat-list { overflow-x: auto; }
   /* .mini is still a table - it is narrow enough and its columns are short. */
   .mini { min-width: 520px; }
+  /* Three columns, and everything else folded under the lender's name: this
+     one is read on a phone and a sideways drag to reach "net" is a drag too
+     many. */
+  .loan-table { min-width: 0; }
 
   /* The transaction list is not. */
   #table-txns { overflow-x: visible; }

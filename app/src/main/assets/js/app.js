@@ -296,6 +296,9 @@ function render() {
   // Debts read the whole ledger, not the selected range: what you owe doesn't
   // change because you're looking at last month.
   renderDebts(all);
+  // The cycle today falls in, so "repaid this cycle" means the same month the
+  // home screen's figures do.
+  renderLoanActivity(all, cycleMonthOf(isoDay(new Date())));
   renderTriage(txns);
 
   // Cross-account check. Only shown once both accounts are actually present —
@@ -1562,11 +1565,146 @@ function untrackedLenders(txns, payables) {
   return [...found.values()].sort((a, b) => b.drawn - a.drawn);
 }
 
+/**
+ * Every lender you have moved money with, and which way it went.
+ *
+ * Grouped by the LENDER's name rather than the counterparty string, because one
+ * lender writes itself several ways - "KCB M-PESA", "KCB M-PESA Withdrawal",
+ * "KCB MPESA LOAN" - and three rows for one debt is not a tracker, it is a
+ * spelling list. Where no known lender word is in the name the counterparty
+ * stands as its own group, so nothing is quietly dropped.
+ *
+ * Fuliza is left out: it has its own panel, it is repaid automatically the
+ * instant money lands, and its hundreds of tiny legs would bury everything
+ * else here.
+ */
+function loanActivity(txns, month) {
+  const monthOf = monthResolver(txns);
+  const out = new Map();
+
+  for (const t of txns) {
+    if (t.category !== 'Loans & Credit') continue;
+    const name = String(t.counterparty || '').trim();
+    if (!name || /fuliza|overdra/i.test(name)) continue;
+
+    const key = (name.match(LENDER_RE) || [name])[0].toUpperCase();
+    const row = out.get(key) || { name: key, repaid: 0, drawn: 0, thisCycle: 0, count: 0, last: null };
+    if (t.direction === 'Out') {
+      row.repaid += t.amount;
+      if (month && monthOf(t) === month) row.thisCycle += t.amount;
+    } else {
+      row.drawn += t.amount;
+    }
+    row.count++;
+    if (!row.last || t.date > row.last) row.last = t.date;
+    out.set(key, row);
+  }
+
+  return [...out.values()].sort((a, b) => b.repaid - a.repaid);
+}
+
+function renderLoanActivity(txns, month) {
+  const el = $('#loan-activity');
+  if (!el) return;
+  const rows = loanActivity(txns, month);
+  if (!rows.length) {
+    el.innerHTML = '<p class="hint">No loan payments in what the app is reading.</p>';
+    return;
+  }
+
+  const repaid = rows.reduce((a, r) => a + r.repaid, 0);
+  const drawn = rows.reduce((a, r) => a + r.drawn, 0);
+  const cycle = rows.reduce((a, r) => a + r.thisCycle, 0);
+
+  el.innerHTML = `
+    <div class="recon-head">
+      <div class="recon-stat">
+        <span class="kpi-label">Repaid this cycle</span>
+        <span class="kpi-value">${viz.fmt(cycle)}</span>
+        <span class="kpi-note">not counted as spending</span>
+      </div>
+      <div class="recon-stat">
+        <span class="kpi-label">Repaid in all</span>
+        <span class="kpi-value">${viz.fmt(repaid)}</span>
+        <span class="kpi-note">over what the app is reading</span>
+      </div>
+      <div class="recon-stat">
+        <span class="kpi-label">Borrowed back</span>
+        <span class="kpi-value">${viz.fmt(drawn)}</span>
+        <span class="kpi-note">${drawn > repaid ? 'more than you repaid' : 'over the same period'}</span>
+      </div>
+    </div>
+    <table class="mini loan-table">
+      <thead><tr><th>Lender</th><th class="num">Repaid</th><th class="num">Borrowed</th></tr></thead>
+      <tbody>${rows
+        .map(
+          (r) => `<tr class="drill" data-drill-name="${escapeHtml(r.name)}" tabindex="0"
+                       title="Show every payment with ${escapeHtml(r.name)}">
+            <td>
+              <strong>${escapeHtml(r.name)}</strong>
+              <div class="dim small">${viz.fmt(r.repaid - r.drawn)} net out ·
+                ${r.count} payment${r.count === 1 ? '' : 's'} · last ${shortDate(r.last)}</div>
+            </td>
+            <td class="num">${viz.fmt(r.repaid)}</td>
+            <td class="num ${r.drawn ? 'in' : 'dim'}">${r.drawn ? viz.fmt(r.drawn) : '—'}</td>
+          </tr>`
+        )
+        .join('')}</tbody>
+    </table>
+    <p class="hint note">Repaying a loan is not spending — you are giving back money you already
+      spent once, and counting it again would charge you twice for the same shopping. That is why
+      none of this is in the figure on the home screen. It is still money leaving, which is why it
+      is here.</p>`;
+
+  wireDrill(el);
+}
+
+/** The "track this" buttons, used by both the empty screen and the full one. */
+function wireAddLender(el) {
+  el.querySelectorAll('button[data-add-lender]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const name = b.dataset.addLender;
+      store.addPayable({
+        name,
+        group: 'Loans — revolving',
+        kind: 'revolving',
+        match: name.toLowerCase(),
+        opening: 0,
+        asOf: '2020-01-01',
+        note: 'Added from statement activity',
+        due: null,
+      });
+      render();
+      toast(`Tracking ${name} — now put in what you owe and it follows the payments.`);
+    })
+  );
+}
+
 function renderDebts(txns) {
   const list = store.payables();
   const el = $('#debts');
   if (!list.length) {
-    el.innerHTML = '<p class="hint">No payables. They seeded from your wealth tracker; if you cleared them, restore a backup to get them back.</p>';
+    // An empty list is not an empty screen: the lenders are in the data even
+    // when no balance has been entered, so offer them rather than telling
+    // somebody to go and find a backup.
+    const missing = untrackedLenders(txns, list);
+    el.innerHTML =
+      '<p class="hint">No balances entered. A balance is the one thing the statements cannot tell you — ' +
+      'what you still owe is between you and the lender — so it has to be typed in once, after which ' +
+      'payments track themselves.</p>' +
+      (missing.length
+        ? `<h3 class="debt-group">Lenders in your statements</h3>
+           <table class="mini"><tbody>${missing
+             .map(
+               (m) => `<tr>
+                 <td><strong>${escapeHtml(m.name)}</strong><div class="dim small">last ${shortDate(m.last)}</div></td>
+                 <td class="num">${viz.fmt(m.drawn)}<div class="dim small">${m.count} draw${m.count === 1 ? '' : 's'}</div></td>
+                 <td class="num"><button class="btn-quiet" data-add-lender="${escapeHtml(m.name)}" data-drawn="${m.drawn}">Track this debt</button></td>
+               </tr>`
+             )
+             .join('')}</tbody></table>`
+        : '');
+    wireAddLender(el);
     setBadge('#debts-badge', '');
     return;
   }
@@ -1648,23 +1786,7 @@ function renderDebts(txns) {
   // past: every draw and repayment in the data replays, so the balance is computed
   // rather than guessed. Match on the lender's name so future statements keep it
   // current.
-  el.querySelectorAll('button[data-add-lender]').forEach((b) =>
-    b.addEventListener('click', () => {
-      const name = b.dataset.addLender;
-      store.addPayable({
-        name,
-        group: 'Loans — revolving',
-        kind: 'revolving',
-        match: name.toLowerCase(),
-        opening: 0,
-        asOf: '2020-01-01',
-        note: 'Added from statement activity',
-        due: null,
-      });
-      render();
-      toast(`Tracking ${name} — its balance now counts in the total.`);
-    })
-  );
+  wireAddLender(el);
 
   const st = $('#show-settled');
   if (st)
