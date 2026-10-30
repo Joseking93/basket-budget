@@ -3300,6 +3300,13 @@ function wireBehind(el, get) {
   const go = (e) => {
     // An Upcoming card has its own link inside it; let that win.
     if (e.target.closest('[data-go]') && e.target.closest('[data-go]') !== el) return;
+    // Anything inside that opens something MORE specific wins. The ring's
+    // slices sit inside the gauge card: without this a tap on Groceries set
+    // its category and the card's own handler then replaced it with the whole
+    // cycle, so every colour opened the same list and the ring looked dead.
+    const drill =
+      e.target.closest && e.target.closest('[data-drill-cat], [data-drill-cats], [data-drill-name]');
+    if (drill && drill !== el) return;
     // The chips sit INSIDE the gauge card, and both are openable - without
     // this a tap on RECEIVED ran its own handler and then the card's, and the
     // filters ended up a mixture of the two: "spending only / in only", which
@@ -4115,13 +4122,17 @@ function renderHome(all) {
   if (ringBox) {
     if (mint) {
       const hrows = viz.donutRows(viz.byCategory(cycle));
-      const hslots = store.chartSlots(hrows.map((r) => r.category));
+      // "Everything else" is asked for by name, because the ring may fold thin
+      // slices into it after this point - and a slice with no slot of its own
+      // fell back to slot 7, which is where it came out the same red as the
+      // category already sitting there.
+      const hslots = store.chartSlots([...hrows.map((r) => r.category), viz.REST_LABEL]);
       viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, {
         middle: false,
         legend: false,
         round: true,
       });
-      wireDrill(ringBox);
+      wireDrill(ringBox, month);
     } else {
       ringBox.innerHTML = '';
     }

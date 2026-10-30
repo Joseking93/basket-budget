@@ -586,7 +586,12 @@ export function renderDonut(
   // A 2px gap in the surface colour is what separates touching slices - never a
   // stroke around them, which would add ink that is not data. In this viewBox
   // 1.6 units lands at about 2px once the ring is drawn at its real size.
-  const GAP = rows.length > 1 ? (round ? 3 : 1.6) : 0;
+  // 1.6 units is about 2px on the ring as the standard look draws it. The
+  // rounded ring is drawn half as big again and on a phone three times that,
+  // where the same gap became a 17px trench between every slice - separation
+  // you could see from across the room rather than a hairline. It is set from
+  // what it has to look like at the size it is actually drawn.
+  const GAP = rows.length > 1 ? (round ? 1.1 : 1.6) : 0;
   // A round cap hangs half a stroke past each end of the dash, so the dash has
   // to give that back or every slice grows by a stroke width.
   const CAP = round ? W : 0;
