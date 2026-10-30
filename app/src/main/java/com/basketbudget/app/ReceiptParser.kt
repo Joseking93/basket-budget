@@ -120,9 +120,17 @@ object ReceiptParser {
     /** "TOTAL LINES: 57" is the slip's own count of the items on it. */
     private val TOTAL_LINES = Regex("""\bTOTAL\s+LINES?\b""", RegexOption.IGNORE_CASE)
 
-    /** Rows whose number is a count or a tax, never the bill. */
+    /**
+     * Rows whose number is a count or a tax, never the bill.
+     *
+     * QTY is spelt [QO0]TY because that is what comes back off a till slip: a
+     * printed Q is a circle with a tick, and OCR calls it an O or a zero as
+     * often as not. Reading "Total Qty : 5.00 units" as the bill made a 2,866
+     * shop think it had spent 5, and then told him his two real nappy packs
+     * were a double-read.
+     */
     private val NOT_THE_TOTAL = Regex(
-        """\b(LINES?|ITEMS?|QTY|QUANTITY|PIECES|PCS|VAT|TAX|SAVINGS)\b""",
+        """\b(LINES?|ITEMS?|[QO0]TY|QUANTITY|PIECES|PCS|UNITS?|VAT|TAX|SAVINGS)\b""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -222,9 +230,19 @@ object ReceiptParser {
      * "230297   1.000 PC   1299.00   1299.00" - code, quantity, unit, each,
      * total. The code is optional because OCR sometimes loses it, and the unit
      * is whatever the shop prints: PC, BU, KG, PKT.
+     *
+     * Anchored at the END only, so the item's NAME is allowed to arrive on the
+     * same row: "FR-JAR SPINACH PER BUNCH E   0023.11.00 2.000 BU 39.00 78.00".
+     * Whether a name and its figures reach us joined or apart is a property of
+     * the PHOTOGRAPH, not of the slip - the camera groups what sits close
+     * together, and how close that looks depends on the angle and the light.
+     * Matching only a whole-row pattern meant a joined row was filed as a name
+     * and then overwritten by the next one, so the item and its money both
+     * disappeared with nothing to say so. Four items on the slip, two in the
+     * app, and a different two each time he tried.
      */
     private val QM_ROW = Regex(
-        """^\s*(?:([A-Za-z0-9][A-Za-z0-9.\-]*)\s+)?([0-9oO]+(?:[.,][0-9oO]+)?)\s*([A-Za-z]{1,4})\s+($MONEY_PAT)\s+($MONEY_PAT)\s*${'$'}"""
+        """(?:^|\s)(?:([A-Za-z0-9][A-Za-z0-9.\-]*)\s+)?([0-9oO]+(?:[.,][0-9oO]+)?)\s*([A-Za-z]{1,4})\s+($MONEY_PAT)\s+($MONEY_PAT)\s*${'$'}"""
     )
 
     /** Rows that end the shopping on a Quickmart slip. */
@@ -281,9 +299,23 @@ object ReceiptParser {
                 continue
             }
 
-            val name = pendingName?.replace(QM_VAT_CLASS, "")?.trim()
+            // Whatever stands in FRONT of the figures on this row is this
+            // item's own name; only when there is nothing there does the row
+            // above get to speak.
+            val inline = row.substring(0, m.range.first).replace(QM_VAT_CLASS, "").trim()
+            val above = pendingName?.replace(QM_VAT_CLASS, "")?.trim()
             pendingName = null
-            if (name.isNullOrBlank() || name.length < 2) continue
+            val code = m.groupValues[1].trim()
+            // A row of figures with no name anywhere still took money off him,
+            // so it is kept under its stock code rather than dropped in
+            // silence. A wrongly named line can be fixed in the sheet; a line
+            // that never appears cannot.
+            val name = when {
+                inline.length >= 2 -> inline
+                !above.isNullOrBlank() && above.length >= 2 -> above
+                code.length >= 3 -> code
+                else -> continue
+            }
 
             // quantity(), not toMoney(): a till writes "2.000", and toMoney
             // reads the last two characters as cents, which turns 2.000 into
@@ -295,7 +327,23 @@ object ReceiptParser {
             if (items.size >= MAX_ITEMS) break
             items += ReceiptItem(name, qty, each ?: lineTotal, lineTotal)
         }
-        return ReceiptScan(items, total, null)
+        return ReceiptScan(items, sane(total, items), null)
+    }
+
+    /**
+     * A bill is never smaller than one of the things on it.
+     *
+     * The word that should rule a row out ("Total Qty") is exactly the word
+     * OCR mangles, so the arithmetic gets the last say: a candidate total
+     * below the biggest line on the slip is not the total. Saying nothing is
+     * far better than saying 5, because a wrong total turns a SHORT read into
+     * a confident "something was read twice - untick the repeats", which is
+     * advice to delete a line he really bought.
+     */
+    private fun sane(total: Double?, items: List<ReceiptItem>): Double? {
+        if (total == null) return null
+        val biggest = items.maxOfOrNull { it.total } ?: return total
+        return if (total + 0.5 < biggest) null else total
     }
 
     fun parse(rows: List<String>): ReceiptScan {
@@ -465,9 +513,10 @@ object ReceiptParser {
 
         val netOfDiscount =
             if (beforeDiscount != null && awarded != null) beforeDiscount!! - awarded!! else null
+        val kept = dedupe(items, codes)
         return ReceiptScan(
-            dedupe(items, codes),
-            total ?: subtotal ?: netOfDiscount ?: beforeDiscount,
+            kept,
+            sane(total ?: subtotal ?: netOfDiscount ?: beforeDiscount, kept),
             lineCount,
         )
     }

@@ -162,6 +162,7 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
 .r.off{opacity:.45}
 .repl{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink);margin-top:10px;line-height:1.4}
 .repl input{width:19px;height:19px;accent-color:var(--tint);margin:0;padding:0;flex:none}
+.raw{width:100%;margin-top:4px;padding:11px;color:var(--ink2)}
 .sheetbtns{display:flex;gap:8px;margin-top:12px}
 .sheetbtns button{flex:1}
 .sheetbtns .ghost{padding:13px}
@@ -286,6 +287,11 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
     </div>
     <div class="rows" id="rows"></div>
     <p class="tip" id="sheetMsg" role="status"></p>
+    <!-- The camera's own text. It was hidden behind a tap on the heading, which
+         is the same as not being there: when a scan comes back short this is
+         the only thing that says whether the camera missed the line or the
+         reader did, and it has to be in front of you to get used. -->
+    <button type="button" class="ghost raw" id="sheetRaw" hidden>What the camera read</button>
     <label class="repl" id="replWrap" hidden>
       <input type="checkbox" id="replBox"><span id="replText"></span>
     </label>
@@ -594,6 +600,7 @@ window.onReceiptScanned=payload=>{
 function drawSheet(){
   const rows=$('rows');rows.innerHTML='';
   $('sheetAdd').hidden=!scanned.length;
+  $('sheetRaw').hidden=!rawRows.length;
   if(!scanned.length){
     $('sums').innerHTML='';
     $('sheetCancel').textContent='Close';
@@ -656,8 +663,12 @@ function sums(){
   $('sheetMsg').textContent=
     receiptTotal==null?'Check these against the slip. Untick anything you do not want.':
     Math.abs(gap)<=1?'This matches the slip. Untick anything you do not want.':
-    gap>0?'KSh '+fmt(gap)+' less than the slip, so some lines were not read. Add those by hand, or photograph the slip again with the sections overlapping. Tap the title above to copy exactly what the camera read.':
-    'KSh '+fmt(-gap)+' more than the slip, so something was read twice. Untick the repeats.';
+    gap>0?'KSh '+fmt(gap)+' less than the slip, so some lines were not read. Add those by hand, or photograph the slip again with the sections overlapping.':
+    // Not necessarily a repeat: a till prints the same thing twice when you
+    // buy two of it, and the slip's own total is as misreadable as any other
+    // row. Saying "untick the repeats" sent him to delete a line he had
+    // really bought.
+    'KSh '+fmt(-gap)+' more than the slip. Either a line was read twice, or the slip total itself was misread — check the two against the paper before unticking anything.';
 }
 
 const sameThing=n=>String(n).toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -677,13 +688,15 @@ $('sheetAdd').onclick=()=>{
 };
 // Copies the camera's own text, which is the only way to tell a misread
 // apart from a line the camera never saw.
-$('sheetTitle').onclick=()=>{
+const copyRaw=()=>{
   if(!rawRows.length)return;
   const text=rawRows.join(String.fromCharCode(10));
   const done=()=>{$('sheetMsg').textContent='Copied what the camera read ('+rawRows.length+' rows). Paste it anywhere.'};
   if(bridge('copyToClipboard')){try{and().copyToClipboard(text);done();return}catch(e){}}
   try{navigator.clipboard.writeText(text).then(done,()=>{})}catch(e){}
 };
+$('sheetRaw').onclick=copyRaw;
+$('sheetTitle').onclick=copyRaw;
 $('sheetCancel').onclick=()=>closeSheet();
 $('sheet').onclick=e=>{if(e.target===$('sheet'))closeSheet()};
 
