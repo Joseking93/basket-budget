@@ -523,7 +523,11 @@ export function donutRows(rows) {
  * lines still will not hold it, the second one ends in an ellipsis.
  */
 function wrapName(name, max) {
-  const words = String(name).split(/\s+/).filter(Boolean);
+  // A word with nowhere to break - "Uncategorised", "Entertainment" - is the
+  // one case a wrapper cannot help with, and left alone it runs off the side
+  // of the drawing. It gets cut instead.
+  const clip = (w) => (w.length > max ? `${w.slice(0, max - 1)}\u2026` : w);
+  const words = String(name).split(/\s+/).filter(Boolean).map(clip);
   const lines = [];
   for (const word of words) {
     const last = lines.length - 1;
@@ -594,8 +598,8 @@ export function renderDonut(
   const R = named ? 56 : 52;
   const W = named ? 15 : hero ? 13 : 16;
   const CX = named ? 115 : 60;
-  const CY = named ? 80 : 60;
-  const BOXH = 166;
+  const CY = named ? 76 : 60;
+  const BOXH = 158;
   const BOX = named ? `0 0 230 ${BOXH}` : '0 0 120 120';
   // Big enough for a glyph to be legible once the ring is drawn at phone size,
   // small enough that eight of them fit round the circle.
@@ -651,7 +655,12 @@ export function renderDonut(
   if (named) {
     const LINE = 8.4;   // between two lines of a name
     const SUB = 7.2;    // between the name and its figures
-    const PAD = 14;     // the box's own top and bottom margin
+    const PAD = 11;     // the box's own top and bottom margin
+    // Every label on a side starts at the same x, clear of the ring. Letting
+    // each one sit where its own slice pointed put the labels near six
+    // o'clock back under the ring, because down there the slice points almost
+    // straight at the middle of the box.
+    const COL = R + W / 2 + 8;
     const picks = [];
     let seen = 0;
     for (const r of rows) {
@@ -668,6 +677,7 @@ export function renderDonut(
           y1: CY + Math.sin(a) * (R + W / 2),
           x2: CX + Math.cos(a) * (R + W / 2 + 5),
           y2: CY + Math.sin(a) * (R + W / 2 + 5),
+          x3: CX + (Math.cos(a) >= 0 ? COL : -COL),
           h: lines.length * LINE + SUB,
         });
       }
@@ -688,7 +698,7 @@ export function renderDonut(
       if (spill > 0) for (const q of col) q.y -= spill;
     }
     for (const q of picks) {
-      const x3 = q.right ? q.x2 + 7 : q.x2 - 7;
+      const { x3 } = q;
       const tx = (q.right ? x3 + 3 : x3 - 3).toFixed(1);
       const anchor = q.right ? 'start' : 'end';
       let by = q.y - q.h / 2 + 6.2;
@@ -700,7 +710,8 @@ export function renderDonut(
       }).join('');
       leads += `<g class="${grow ? 'ring-late' : ''}" ${drillAttr(q.r)}>
           <path class="ring-lead" d="M${q.x1.toFixed(1)} ${q.y1.toFixed(1)}
-            L${q.x2.toFixed(1)} ${q.y2.toFixed(1)} L${x3.toFixed(1)} ${q.y.toFixed(1)}"/>
+            L${q.x2.toFixed(1)} ${q.y2.toFixed(1)} L${x3.toFixed(1)} ${q.y2.toFixed(1)}
+            ${Math.abs(q.y - q.y2) < 0.6 ? '' : `L${x3.toFixed(1)} ${q.y.toFixed(1)}`}"/>
           ${names}
           <text class="ring-lsub" x="${tx}" y="${(by - 0.6).toFixed(1)}"
                 text-anchor="${anchor}">${Math.round(q.share * 100)}% &#183; ${fmt(q.r.total)}</text>

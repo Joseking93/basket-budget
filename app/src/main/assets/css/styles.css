@@ -1326,8 +1326,8 @@ tr.is-stale { opacity: .55; }
 /* On the element and not inherited: ".gauge path" sets the 14-unit stroke the
    arc gauge is drawn with, and that beats anything coming down from a parent. */
 .gauge .ring-lead, .ring-lead { fill: none; stroke: var(--card-line); stroke-width: 1; }
-.ring-lname { font-size: 7.2px; font-weight: 800; fill: var(--ink); }
-.ring-lsub { font-size: 6.4px; font-weight: 700; fill: var(--ink2); }
+.ring-lname { font-size: 6.8px; font-weight: 800; fill: var(--ink); }
+.ring-lsub { font-size: 6.1px; font-weight: 700; fill: var(--ink2); }
 /* The names live in the margins of the drawing, so the drawing wants the whole
    card - and the figure in the hole gives up its headline size to pay for it,
    because under minted the headline is the balance above. */
