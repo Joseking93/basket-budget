@@ -3459,8 +3459,10 @@ function renderSpark(all, todayIso) {
  * one and a renamed line does not go blank.
  */
 const LINE_ICONS = [
+  [/^everything else$/i, '⋯'],
   [/rent|hous|mortgage/i, '\u{1F3E0}'],
-  [/grocer|supermarket|food|shop/i, '\u{1F9FA}'],
+  [/grocer|supermarket|food|market|duka/i, '\u{1F9FA}'],
+  [/shop|retail|clothes|gift/i, '\u{1F6CD}'],
   [/transport|fuel|petrol|matatu|uber|car|mechanic/i, '\u{26FD}'],
   [/airtime|data|bundle/i, '\u{1F4F1}'],
   [/internet|wifi|fibre|fiber/i, '\u{1F4E1}'],
@@ -4130,7 +4132,8 @@ function renderHome(all) {
       viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, {
         middle: false,
         legend: false,
-        round: true,
+        hero: true,
+        iconOf: lineIcon,
       });
       wireDrill(ringBox, month);
     } else {

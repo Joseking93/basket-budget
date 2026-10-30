@@ -1240,6 +1240,12 @@ tr.is-stale { opacity: .55; }
 :root[data-look="minted"] .bc-go    { grid-area: go; justify-self: end; }
 :root[data-look="minted"] .bal-name { font-weight: 700; }
 
+/* The discs that sit on the hero ring. The fill is the card they are on, so
+   each one punches a hole in its slice rather than floating over it, and they
+   never take a tap: the slice underneath owns it. */
+.ring-pin { fill: var(--card); stroke: var(--card-line); stroke-width: 1; pointer-events: none; }
+.ring-pin-ico { font-size: 9.5px; pointer-events: none; }
+
 /* The budget lines as tiles: a dial, an icon, and the two figures. The icon
    is what you find the line by - at this size a name is read second. */
 #home-budgets.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

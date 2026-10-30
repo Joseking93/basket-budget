@@ -532,48 +532,23 @@ const drillAttr = (r) =>
  * @param {boolean} o.legend  false draws the ring alone.
  * @param {boolean} o.ring    false draws the legend alone - for a page that
  *                            is already carrying this ring further up.
- * @param {boolean} o.round   rounded ends, which is what makes the ring read
- *                            as ribbons rather than tiles. It costs accuracy
- *                            at the bottom: a cap is half the stroke wide at
- *                            each end, so no slice can draw thinner than the
- *                            stroke, and anything under about 5% reads the
- *                            same size. Only worth it where the exact figures
- *                            are written out directly underneath.
+ * @param {boolean}  o.hero    the Minted hero treatment: a heavier ring whose
+ *                             slices meet at a hairline. Rounded ends were
+ *                             tried and dropped - a cap hangs half a stroke
+ *                             past each end, so no slice could be drawn
+ *                             thinner than the stroke and the small
+ *                             categories had to be folded away to hide it.
+ *                             Square ends cost nothing and give them back.
+ * @param {Function} o.iconOf  category -> one character to sit on its slice.
+ *                             Only slices with room get one: two discs on
+ *                             neighbouring thin slices land on top of each
+ *                             other.
  */
-/**
- * Fold the slices a rounded ring cannot draw honestly.
- *
- * A round cap hangs half a stroke past each end, so no slice can be drawn
- * thinner than the stroke itself. Seven thin categories therefore come back
- * as seven identical pills - equal-looking slices that are not equal - and
- * because each one is drawn shorter than the share it was given, the
- * leftovers pile up as blank sectors: a fifth of the ring showing nothing.
- *
- * So anything too thin to draw at its real size is not drawn at its real
- * size. It joins the fold that already exists for the long tail, under the
- * same label, and the exact figures stay in the tiles underneath.
- */
-function foldThin(rows, minShare) {
-  const total = rows.reduce((a, r) => a + r.total, 0);
-  const thin = rows.filter((r) => r.total / total < minShare);
-  // One thin slice is a slice. Two or more is the problem described above.
-  if (thin.length < 2) return rows;
-  const kept = rows.filter((r) => r.total / total >= minShare);
-  const folded = {
-    category: REST_LABEL,
-    total: thin.reduce((a, r) => a + r.total, 0),
-    count: thin.reduce((a, r) => a + r.count, 0),
-    // Keep what it stands for, so tapping it still opens those transactions.
-    rest: thin.flatMap((r) => r.rest || [r.category]),
-  };
-  return [...kept, folded];
-}
-
 export function renderDonut(
   el,
   rows,
   slotOf,
-  { label = 'spent', middle = true, legend = true, ring = true, round = false } = {},
+  { label = 'spent', middle = true, legend = true, ring = true, hero = false, iconOf = null } = {},
 ) {
   if (!rows.length || rows.reduce((a, r) => a + r.total, 0) <= 0) {
     el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
@@ -581,38 +556,50 @@ export function renderDonut(
   }
 
   const R = 52;
-  const W = round ? 13 : 16;
+  const W = hero ? 13 : 16;
   const C = 2 * Math.PI * R;
   // A 2px gap in the surface colour is what separates touching slices - never a
   // stroke around them, which would add ink that is not data. In this viewBox
   // 1.6 units lands at about 2px once the ring is drawn at its real size.
-  // 1.6 units is about 2px on the ring as the standard look draws it. The
-  // rounded ring is drawn half as big again and on a phone three times that,
-  // where the same gap became a 17px trench between every slice - separation
-  // you could see from across the room rather than a hairline. It is set from
-  // what it has to look like at the size it is actually drawn.
-  const GAP = rows.length > 1 ? (round ? 1.1 : 1.6) : 0;
-  // A round cap hangs half a stroke past each end of the dash, so the dash has
-  // to give that back or every slice grows by a stroke width.
-  const CAP = round ? W : 0;
-  // Which is also the smallest slice a rounded ring can tell the truth about.
-  if (round) rows = foldThin(rows, (CAP + GAP) / C);
+  // 1.6 units is about 2px on the ring as the standard look draws it; the hero
+  // ring is drawn half as big again on a laptop and three times that on a
+  // phone, so it needs a smaller figure to land on the same hairline.
+  const GAP = rows.length > 1 ? (hero ? 0.9 : 1.6) : 0;
   const total = rows.reduce((a, r) => a + r.total, 0);
 
   let at = 0;
   const arcs = rows
     .map((r) => {
-      const len = Math.max((r.total / total) * C - GAP - CAP, 0.6);
+      const len = Math.max((r.total / total) * C - GAP, 0.6);
       const dash = `${len} ${C - len}`;
       const offset = -at;
       at += (r.total / total) * C;
       return `<circle class="ring-arc" cx="60" cy="60" r="${R}" fill="none"
                  stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
-                 ${round ? 'stroke-linecap="round"' : ''}
                  stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
                  ${drillAttr(r)}><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
     })
     .join('');
+
+  // A disc on each slice with room for one, at the middle of its own arc. The
+  // icon is what the colour means, which is the thing a ring cannot say by
+  // itself - and saying it here is what lets the ring go without a legend.
+  let pins = '';
+  if (iconOf) {
+    let seen = 0;
+    for (const r of rows) {
+      const share = r.total / total;
+      if (share > 0.09) {
+        const a = ((seen + share / 2) * 2 - 0.5) * Math.PI;
+        const x = 60 + Math.cos(a) * R;
+        const y = 60 + Math.sin(a) * R;
+        pins += `<circle class="ring-pin" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9.5"/>
+          <text class="ring-pin-ico" x="${x.toFixed(1)}" y="${(y + 3.6).toFixed(1)}"
+                text-anchor="middle">${esc(iconOf(r.category))}</text>`;
+      }
+      seen += share;
+    }
+  }
 
   const legendHtml = !legend ? '' : rows
     .map((r) => {
@@ -634,7 +621,7 @@ export function renderDonut(
   el.innerHTML = `
     ${!ring ? '' : `<div class="ring-wrap">
       <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Spending by category">
-        <g transform="rotate(-90 60 60)">${arcs}</g>
+        <g transform="rotate(-90 60 60)">${arcs}</g>${pins}
       </svg>
       ${middle ? `<div class="ring-mid">
         <span class="ring-total">${fmt(total)}</span>
