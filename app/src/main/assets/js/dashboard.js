@@ -516,6 +516,26 @@ export function donutRows(rows) {
 }
 
 /**
+ * A category name over at most two lines, broken between words.
+ *
+ * A word longer than the line is left alone rather than hyphenated - a name
+ * is a thing you recognise at a glance, and "Entertain-" is not it. If two
+ * lines still will not hold it, the second one ends in an ellipsis.
+ */
+function wrapName(name, max) {
+  const words = String(name).split(/\s+/).filter(Boolean);
+  const lines = [];
+  for (const word of words) {
+    const last = lines.length - 1;
+    if (last >= 0 && `${lines[last]} ${word}`.length <= max) lines[last] += ` ${word}`;
+    else lines.push(word);
+  }
+  if (lines.length <= 2) return lines.length ? lines : [String(name)];
+  const rest = lines.slice(1).join(' ');
+  return [lines[0], `${rest.slice(0, max - 1).trimEnd()}\u2026`];
+}
+
+/**
  * @param {Function} slotOf  category -> 0..7, stable across renders
  */
 /** The folded row filters to everything it folded; a real one to itself. */
@@ -541,6 +561,11 @@ const drillAttr = (r) =>
  *                             Square ends cost nothing and give them back.
  * @param {Function} o.iconOf  category -> the one character to sit on a disc
  *                             on its slice.
+ * @param {boolean}  o.grow    draw the ring once round from twelve o'clock
+ *                             instead of appearing whole. Only on the first
+ *                             drawing of a session: an animation that runs
+ *                             again every time a figure changes stops being
+ *                             an entrance and becomes a flicker.
  * @param {number}   o.labels  name every slice worth at least this share of
  *                             the total, in the margin beside it, on a leader
  *                             line. The ring is drawn smaller to pay for the
@@ -553,7 +578,7 @@ export function renderDonut(
   slotOf,
   {
     label = 'spent', middle = true, legend = true, ring = true, hero = false,
-    iconOf = null, labels = 0,
+    iconOf = null, labels = 0, grow = false,
   } = {},
 ) {
   if (!rows.length || rows.reduce((a, r) => a + r.total, 0) <= 0) {
@@ -566,11 +591,12 @@ export function renderDonut(
   // room. A name that does not fit is simply cut off by the box, which is how
   // the first draft lost the first word of "Family & support".
   const named = labels > 0;
-  const R = named ? 38 : 52;
-  const W = named || hero ? 13 : 16;
+  const R = named ? 56 : 52;
+  const W = named ? 15 : hero ? 13 : 16;
   const CX = named ? 115 : 60;
-  const CY = named ? 72 : 60;
-  const BOX = named ? '0 0 230 148' : '0 0 120 120';
+  const CY = named ? 80 : 60;
+  const BOXH = 166;
+  const BOX = named ? `0 0 230 ${BOXH}` : '0 0 120 120';
   // Big enough for a glyph to be legible once the ring is drawn at phone size,
   // small enough that eight of them fit round the circle.
   const PIN_R = 9.5;
@@ -586,14 +612,18 @@ export function renderDonut(
 
   let at = 0;
   const arcs = rows
-    .map((r) => {
+    .map((r, i) => {
       const len = Math.max((r.total / total) * C - GAP, 0.6);
       const dash = `${len} ${C - len}`;
       const offset = -at;
       at += (r.total / total) * C;
-      return `<circle class="ring-arc" cx="${CX}" cy="${CY}" r="${R}" fill="none"
-                 stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
-                 stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
+      // Growing one: it starts as nothing and is told its real length a frame
+      // later, so the browser's own transition walks it round. The delay is
+      // what makes the slices arrive one after another rather than together.
+      return `<circle class="ring-arc${grow ? ' grow' : ''}" cx="${CX}" cy="${CY}" r="${R}"
+                 fill="none" stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
+                 stroke-dasharray="${grow ? `0 ${C}` : dash}" stroke-dashoffset="${offset}"
+                 ${grow ? `data-dash="${dash}" style="transition-delay:${(i * 70).toFixed(0)}ms"` : ''}
                  ${drillAttr(r)}><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
     })
     .join('');
@@ -612,32 +642,69 @@ export function renderDonut(
   // The names, in the margins, each on a line back to its own slice. Only the
   // slices worth naming get one: five labels is already most of the height of
   // the box, and the rest are written out underneath or on the cards.
+  //
+  // Wrapping a name over two lines is what pays for the ring's size. A margin
+  // wide enough for "Transport & Fuel" on one line is a third of the card at
+  // each side, and the circle gets whatever is left - which was not much. Two
+  // short lines need half that, so the ring grows by about half again.
   let leads = '';
   if (named) {
+    const LINE = 8.4;   // between two lines of a name
+    const SUB = 7.2;    // between the name and its figures
+    const PAD = 14;     // the box's own top and bottom margin
+    const picks = [];
     let seen = 0;
     for (const r of rows) {
       const share = r.total / total;
       if (share >= labels) {
         const a = (seen + share / 2) * 2 * Math.PI - Math.PI / 2;
-        const right = Math.cos(a) >= 0;
-        const x1 = CX + Math.cos(a) * (R + W / 2);
-        const y1 = CY + Math.sin(a) * (R + W / 2);
-        const x2 = CX + Math.cos(a) * (R + W / 2 + 7);
-        const y2 = CY + Math.sin(a) * (R + W / 2 + 7);
-        const x3 = right ? x2 + 9 : x2 - 9;
-        const tx = (right ? x3 + 3 : x3 - 3).toFixed(1);
-        // Clipped to what the margin holds, not to what the box holds.
-        const name = r.category.length > 17 ? `${r.category.slice(0, 16).trimEnd()}\u2026` : r.category;
-        leads += `<g ${drillAttr(r)}>
-            <path class="ring-lead" d="M${x1.toFixed(1)} ${y1.toFixed(1)}
-              L${x2.toFixed(1)} ${y2.toFixed(1)} L${x3.toFixed(1)} ${y2.toFixed(1)}"/>
-            <text class="ring-lname" x="${tx}" y="${(y2 - 1).toFixed(1)}"
-                  text-anchor="${right ? 'start' : 'end'}">${esc(name)}</text>
-            <text class="ring-lsub" x="${tx}" y="${(y2 + 6).toFixed(1)}"
-                  text-anchor="${right ? 'start' : 'end'}">${Math.round(share * 100)}% &#183; ${fmt(r.total)}</text>
-          </g>`;
+        const lines = wrapName(r.category, 11);
+        picks.push({
+          r,
+          share,
+          right: Math.cos(a) >= 0,
+          lines,
+          x1: CX + Math.cos(a) * (R + W / 2),
+          y1: CY + Math.sin(a) * (R + W / 2),
+          x2: CX + Math.cos(a) * (R + W / 2 + 5),
+          y2: CY + Math.sin(a) * (R + W / 2 + 5),
+          h: lines.length * LINE + SUB,
+        });
       }
       seen += share;
+    }
+    // Each side of the ring is a column of labels, and two of them at nearly
+    // the same angle would otherwise be written on top of each other. They are
+    // pushed down the column until they clear, then the whole column slides
+    // back up if it has run off the bottom.
+    for (const onRight of [true, false]) {
+      const col = picks.filter((q) => q.right === onRight).sort((x, y) => x.y2 - y.y2);
+      let floor = PAD;
+      for (const q of col) {
+        q.y = Math.max(q.y2, floor + q.h / 2);
+        floor = q.y + q.h / 2 + 3;
+      }
+      const spill = floor - (BOXH - PAD);
+      if (spill > 0) for (const q of col) q.y -= spill;
+    }
+    for (const q of picks) {
+      const x3 = q.right ? q.x2 + 7 : q.x2 - 7;
+      const tx = (q.right ? x3 + 3 : x3 - 3).toFixed(1);
+      const anchor = q.right ? 'start' : 'end';
+      let by = q.y - q.h / 2 + 6.2;
+      const names = q.lines.map((line) => {
+        const t = `<text class="ring-lname" x="${tx}" y="${by.toFixed(1)}"
+                    text-anchor="${anchor}">${esc(line)}</text>`;
+        by += LINE;
+        return t;
+      }).join('');
+      leads += `<g class="${grow ? 'ring-late' : ''}" ${drillAttr(q.r)}>
+          <path class="ring-lead" d="M${q.x1.toFixed(1)} ${q.y1.toFixed(1)}
+            L${q.x2.toFixed(1)} ${q.y2.toFixed(1)} L${x3.toFixed(1)} ${q.y.toFixed(1)}"/>
+          ${names}
+          <text class="ring-lsub" x="${tx}" y="${(by - 0.6).toFixed(1)}"
+                text-anchor="${anchor}">${Math.round(q.share * 100)}% &#183; ${fmt(q.r.total)}</text>
+        </g>`;
     }
   }
 
@@ -682,7 +749,7 @@ export function renderDonut(
       const a = (at[i] * 2 - 0.5) * Math.PI;
       const x = CX + Math.cos(a) * R;
       const y = CY + Math.sin(a) * R;
-      pins += `<g class="ring-pin" ${drillAttr(r)}>
+      pins += `<g class="ring-pin${grow ? ' ring-late' : ''}" ${drillAttr(r)}>
           <title>${esc(r.category)}: ${fmt(r.total)}</title>
           <circle class="ring-pin-disc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${PIN_R}"/>
           <text class="ring-pin-ico" x="${x.toFixed(1)}" y="${(y + 3.6).toFixed(1)}"
@@ -719,4 +786,52 @@ export function renderDonut(
       </div>` : ''}
     </div>`}
     ${legend ? `<div class="legend">${legendHtml}</div>` : ''}`;
+
+  if (grow) {
+    // Driven here rather than by a CSS transition on stroke-dasharray. That
+    // transition is the obvious way to write this and it is not dependable:
+    // whether it runs at all depends on the engine having computed a starting
+    // value first, which a view that has only just been handed its markup may
+    // never have done. A dash length worked out frame by frame always does
+    // the same thing, and can be watched doing it.
+    const arcs = [...el.querySelectorAll('.ring-arc.grow')];
+    const late = [...el.querySelectorAll('.ring-late')];
+    const DUR = 900;
+    const STAGGER = 70;   // between one slice starting and the next
+    const FADE_AT = 520;  // the names arrive once the ring is most of the way
+    const finish = () => {
+      arcs.forEach((arc) => { arc.style.strokeDasharray = arc.dataset.dash; });
+      late.forEach((g) => { g.style.opacity = '1'; });
+    };
+    const still = window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still) {
+      finish();
+    } else {
+      const began = performance.now();
+      let frames = 0;
+      const tick = (now) => {
+        frames += 1;
+        const since = now - began;
+        let running = false;
+        arcs.forEach((arc, i) => {
+          const p = Math.max(0, Math.min(1, (since - i * STAGGER) / DUR));
+          if (p < 1) running = true;
+          const eased = 1 - (1 - p) ** 3;
+          const [len, gap] = arc.dataset.dash.split(' ').map(Number);
+          // The gap takes back whatever the dash has not grown into, so the
+          // pattern stays the length of the circle and the slice stays put.
+          arc.style.strokeDasharray = `${len * eased} ${gap + len * (1 - eased)}`;
+        });
+        const fade = Math.max(0, Math.min(1, (since - FADE_AT) / 420));
+        late.forEach((g) => { g.style.opacity = String(fade); });
+        if (running || fade < 1) requestAnimationFrame(tick);
+        else finish();
+      };
+      requestAnimationFrame(tick);
+      // A view that is not painting yet never calls back, and an empty ring is
+      // worse than one that simply appeared.
+      setTimeout(() => { if (!frames) finish(); }, 300);
+    }
+  }
 }

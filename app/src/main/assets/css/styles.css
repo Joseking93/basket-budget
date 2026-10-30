@@ -1286,6 +1286,13 @@ tr.is-stale { opacity: .55; }
 .bt-of { font-size: 11px; color: var(--ink2); font-weight: 600; }
 .btile.over .bt-amt { color: var(--bad); }
 
+/* ---- the ring arriving --------------------------------------------------
+   Only the starting state is here; the movement itself is worked out frame by
+   frame in renderDonut, which says why. Anyone who has asked their phone for
+   less movement gets none - the end state is set in one go instead. */
+.ring-late { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .ring-late { opacity: 1; } }
+
 /* ---- the balance, on top (minted) ---------------------------------------
    Shown only under the minted look, and hidden by its own [hidden] the rest
    of the time: the standard look leads with the budget arc. */
@@ -1319,16 +1326,16 @@ tr.is-stale { opacity: .55; }
 /* On the element and not inherited: ".gauge path" sets the 14-unit stroke the
    arc gauge is drawn with, and that beats anything coming down from a parent. */
 .gauge .ring-lead, .ring-lead { fill: none; stroke: var(--card-line); stroke-width: 1; }
-.ring-lname { font-size: 6px; font-weight: 800; fill: var(--ink); }
-.ring-lsub { font-size: 5.5px; font-weight: 700; fill: var(--ink2); }
+.ring-lname { font-size: 7.2px; font-weight: 800; fill: var(--ink); }
+.ring-lsub { font-size: 6.4px; font-weight: 700; fill: var(--ink2); }
 /* The names live in the margins of the drawing, so the drawing wants the whole
    card - and the figure in the hole gives up its headline size to pay for it,
    because under minted the headline is the balance above. */
 /* Beats ':root[data-look="minted"] .gauge', which caps the plain ring at the
    232px it wants; a named ring needs every pixel of the card for its margins. */
 :root[data-look="minted"] .gauge.named { max-width: none; }
-.gauge.named .gauge-big { font-size: 21px; }
-.gauge.named .gauge-of { font-size: 11px; }
+.gauge.named .gauge-big { font-size: 25px; }
+.gauge.named .gauge-of { font-size: 12px; }
 
 .hero-cats {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1341,19 +1348,19 @@ tr.is-stale { opacity: .55; }
   padding: 9px; font: inherit; color: var(--ink); cursor: pointer;
 }
 .hcat:hover { background: var(--card-3); }
-.hc-dial { position: relative; width: 38px; height: 38px; flex: none; }
-.hc-dial svg { display: block; width: 38px; height: 38px; }
+.hc-dial { position: relative; width: 42px; height: 42px; flex: none; }
+.hc-dial svg { display: block; width: 42px; height: 42px; }
 .hc-dial em {
   position: absolute; inset: 0; display: grid; place-items: center;
-  font-style: normal; font-size: 15px; line-height: 1;
+  font-style: normal; font-size: 17px; line-height: 1;
 }
 .hc-text { min-width: 0; display: flex; flex-direction: column; }
 .hc-name {
-  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
-.hc-pct { font-size: 10.5px; font-weight: 700; color: var(--ink2); }
-.hc-amt { font-size: 14.5px; font-weight: 800; letter-spacing: -.02em; }
+.hc-pct { font-size: 11px; font-weight: 700; color: var(--ink2); }
+.hc-amt { font-size: 16.5px; font-weight: 800; letter-spacing: -.02em; }
 
 /* Pie, then the spending, then the wallets. The view is already a column, so
    this is an order and not a second copy of the markup. */

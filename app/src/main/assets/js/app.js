@@ -3331,6 +3331,39 @@ function wireBehind(el, get) {
  * balance is the latest one that exists - narrowing the window should change
  * what you are looking at, never what you have.
  */
+/** Movement the phone has been asked not to make. */
+const stillPlease = () =>
+  window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Count a figure up to itself.
+ *
+ * Only worth doing where the number is the point of the screen, and only
+ * once: a total that re-counts every time anything on the page changes is a
+ * fidget, not an entrance. The easing is fast at first and long at the end,
+ * so the last few hundred land slowly enough to read.
+ */
+function countUp(el, to, ms = 1100) {
+  if (!el) return;
+  if (stillPlease() || !to) {
+    el.textContent = viz.fmt(to);
+    return;
+  }
+  const started = performance.now();
+  let frames = 0;
+  const step = (now) => {
+    frames += 1;
+    const t = Math.min(1, (now - started) / ms);
+    const eased = 1 - (1 - t) ** 3;
+    el.textContent = viz.fmt(Math.round(to * eased));
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  // A view that is not painting yet never calls back - and a total frozen at
+  // zero is a far worse bug than one that simply did not move.
+  setTimeout(() => { if (!frames) el.textContent = viz.fmt(to); }, 300);
+}
+
 /** The most recent message that carried a balance, per account. */
 function latestBalances() {
   const latest = new Map();
@@ -3415,9 +3448,12 @@ function renderBalanceTop() {
     : oldest === 1 ? 'as of yesterday'
       : `oldest reading ${oldest} days old`;
   box.hidden = false;
+  // Counted up only on the first drawing of a session - see countUp.
+  const arriving = box.dataset.drawn !== '1';
+  box.dataset.drawn = '1';
   box.innerHTML = `
     <p class="bt-lab">Money I have</p>
-    <p class="bt-big">${viz.fmt(total)}</p>
+    <p class="bt-big">${arriving ? '0' : viz.fmt(total)}</p>
     <p class="bt-sub">across ${parts.length} wallet${parts.length === 1 ? '' : 's'} &middot; ${when}</p>
     <div class="bt-chips">${parts.map((w) => `
       <button class="wchip${w.days > 3 ? ' stale' : ''}" type="button" ${w.attr}>
@@ -3428,6 +3464,7 @@ function renderBalanceTop() {
         </span>
       </button>`).join('')}</div>`;
   wireWallets(box);
+  if (arriving) countUp(box.querySelector('.bt-big'), total);
   return undefined;
 }
 
@@ -4214,11 +4251,15 @@ function renderHome(all) {
       const hglyphs = glyphMap(hrows.map((r) => r.category));
       // 7% is about what a slice needs before its name has somewhere to point
       // without landing on its neighbour's line.
+      // The same once-a-session rule as the balance above it.
+      const arriving = ringBox.dataset.drawn !== '1';
+      ringBox.dataset.drawn = '1';
       viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, {
         middle: false,
         legend: false,
         hero: true,
         labels: 0.07,
+        grow: arriving,
       });
       wireDrill(ringBox, month);
       renderHeroCats(hrows, (c) => hslots[c] ?? 7, hglyphs, month);
