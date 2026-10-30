@@ -3426,27 +3426,36 @@ function renderBalanceTop() {
   const pocket = pocketNow();
   if (pocket.pocket > 0 || store.cashRuns().length) {
     parts.push({
-      name: 'Cash in pocket', amount: pocket.pocket, icon: emojiOf('cash'),
-      attr: 'data-cash="1"', days: 0,
+      name: 'Cash in pocket',
+      amount: pocket.pocket,
+      icon: emojiOf('cash'),
+      attr: 'data-cash="1"',
+      days: 0,
+      when: pocket.since ? `drawn out since ${shortDate(pocket.since)}` : 'nothing drawn out yet',
     });
   }
   for (const [acct, t] of [...latestBalances().entries()]
     .sort((x, y) => (x[1].date < y[1].date ? 1 : -1))) {
+    const days = Math.round((today - Date.parse(t.date.slice(0, 10))) / 86400000);
     parts.push({
       name: ACCOUNT_LABELS[acct] || acct,
       amount: t.balance,
       icon: emojiOf('card'),
       attr: `data-acct="${escapeHtml(acct)}"`,
-      days: Math.round((today - Date.parse(t.date.slice(0, 10))) / 86400000),
+      days,
+      when: days <= 0 ? 'read today'
+        : days === 1 ? 'read yesterday'
+          : `read ${shortDate(t.date.slice(0, 10))}`,
     });
   }
   if (!parts.length) return hide();
 
   const total = parts.reduce((sum, w) => sum + w.amount, 0);
   const oldest = Math.max(...parts.map((w) => w.days));
-  const when = oldest <= 0 ? 'as of today'
-    : oldest === 1 ? 'as of yesterday'
-      : `oldest reading ${oldest} days old`;
+  const counted = `across ${parts.length} wallet${parts.length === 1 ? '' : 's'}`;
+  // Each row says its own age, so the line under the total only speaks up
+  // when the whole figure is old enough to be worth doubting.
+  const sub = oldest > 3 ? `${counted} &middot; oldest reading ${oldest} days old` : counted;
   box.hidden = false;
   // Counted up only on the first drawing of a session - see countUp.
   const arriving = box.dataset.drawn !== '1';
@@ -3454,14 +3463,16 @@ function renderBalanceTop() {
   box.innerHTML = `
     <p class="bt-lab">Money I have</p>
     <p class="bt-big">${arriving ? '0' : viz.fmt(total)}</p>
-    <p class="bt-sub">across ${parts.length} wallet${parts.length === 1 ? '' : 's'} &middot; ${when}</p>
-    <div class="bt-chips">${parts.map((w) => `
-      <button class="wchip${w.days > 3 ? ' stale' : ''}" type="button" ${w.attr}>
-        <i aria-hidden="true">${w.icon}</i>
-        <span class="wc-text">
-          <b>${viz.fmt(w.amount)}</b>
-          <span>${escapeHtml(w.name)}</span>
+    <p class="bt-sub">${sub}</p>
+    <div class="mrows">${parts.map((w) => `
+      <button class="mrow" type="button" ${w.attr}>
+        <span class="msq" aria-hidden="true">${w.icon}</span>
+        <span class="mtext">
+          <span class="mname">${escapeHtml(w.name)}</span>
+          <span class="mwhen">${escapeHtml(w.when)}</span>
         </span>
+        <span class="mamt">${viz.fmt(w.amount)}</span>
+        <span class="mgo" aria-hidden="true">\u203a</span>
       </button>`).join('')}</div>`;
   wireWallets(box);
   if (arriving) countUp(box.querySelector('.bt-big'), total);
@@ -3569,12 +3580,13 @@ function renderSpark(all, todayIso) {
  * one and a renamed line does not go blank.
  */
 /**
- * The four biggest categories of the cycle, written out under the ring.
+ * The four biggest categories of the cycle, listed under the ring.
  *
  * The ring answers "how much OF it"; a figure you can read answers "how
- * much". The dial on each card is that category's share of the cycle, which
- * is the same thing its slice is saying, so the two halves of the card agree
- * with the two halves of the screen.
+ * much". They are rows with a hairline between them rather than a card each:
+ * four cards is four boxes doing the work of one list, and the ring beside
+ * them is already as much furniture as the screen can carry. The icon takes
+ * its slice's colour at a whisper, which is the whole of the decoration.
  */
 function renderHeroCats(rows, slotOf, glyphs, month) {
   const box = $('#hero-cats');
@@ -3591,14 +3603,15 @@ function renderHeroCats(rows, slotOf, glyphs, month) {
     const opens = r.rest
       ? `data-drill-cats="${escapeHtml(r.rest.join('|'))}" data-drill-label="${escapeHtml(r.category)}"`
       : `data-drill-cat="${escapeHtml(r.category)}"`;
-    return `<button class="hcat" type="button" ${opens}>
-      <span class="hc-dial">${tileDial(pct, colour)}
-        <em>${emojiOf(glyphs[r.category] || glyphFor(r.category))}</em></span>
-      <span class="hc-text">
-        <span class="hc-name">${escapeHtml(r.category)}</span>
-        <span class="hc-pct">${Math.round(pct * 100)}%</span>
-        <span class="hc-amt">${viz.fmt(r.total)}</span>
+    return `<button class="mrow" type="button" ${opens}>
+      <span class="msq" aria-hidden="true" style="background:${colour}1f">
+        ${emojiOf(glyphs[r.category] || glyphFor(r.category))}</span>
+      <span class="mtext">
+        <span class="mname">${escapeHtml(r.category)}</span>
+        <span class="mwhen">${Math.round(pct * 100)}% of the month</span>
       </span>
+      <span class="mamt">${viz.fmt(r.total)}</span>
+      <span class="mgo" aria-hidden="true">\u203a</span>
     </button>`;
   }).join('');
   wireDrill(box, month);
@@ -4249,8 +4262,10 @@ function renderHome(all) {
       const hslots = store.chartSlots([...hrows.map((r) => r.category), viz.REST_LABEL]);
       // Resolved over the whole ring at once, so two slices never share one.
       const hglyphs = glyphMap(hrows.map((r) => r.category));
-      // 7% is about what a slice needs before its name has somewhere to point
-      // without landing on its neighbour's line.
+      // Nothing is written on the ring: the names are in the list under it,
+      // so the circle can be as big as the card and nothing can collide with
+      // it. Leader lines were tried and dropped - they were the only part of
+      // this screen that broke every time a category was renamed.
       // The same once-a-session rule as the balance above it.
       const arriving = ringBox.dataset.drawn !== '1';
       ringBox.dataset.drawn = '1';
@@ -4258,7 +4273,6 @@ function renderHome(all) {
         middle: false,
         legend: false,
         hero: true,
-        labels: 0.07,
         grow: arriving,
       });
       wireDrill(ringBox, month);
@@ -4268,8 +4282,13 @@ function renderHome(all) {
       renderHeroCats([], null, null, month);
     }
   }
-  const gaugeEl = document.querySelector('.gauge');
-  if (gaugeEl) gaugeEl.classList.toggle('named', mint);
+  if (mint && budgeted > 0) {
+    // The ring counts spending, so the figure inside it counts spending too.
+    // What is LEFT moves to the line under the list, where it reads as the
+    // note it is instead of competing with the balance at the top.
+    $('#hero-left').textContent = viz.fmt(spent);
+    $('#hero-sub').textContent = `of ${viz.fmt(budgeted)}`;
+  }
 
   // Where the cycle has got to, against where the money has got to. Only
   // minted shows it: the standard look says the same thing in the arc.

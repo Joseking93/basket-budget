@@ -1296,71 +1296,52 @@ tr.is-stale { opacity: .55; }
 /* ---- the balance, on top (minted) ---------------------------------------
    Shown only under the minted look, and hidden by its own [hidden] the rest
    of the time: the standard look leads with the budget arc. */
-.bal-top { text-align: center; margin: 2px 0 0; }
-.bt-lab {
-  margin: 0; font-size: 11.5px; font-weight: 700; color: var(--ink2);
-  letter-spacing: .06em; text-transform: uppercase;
+.bal-top {
+  background: var(--card); border: 1px solid var(--card-line);
+  border-radius: 22px; padding: 15px 15px 4px; box-shadow: var(--card-shadow);
 }
-.bt-big { margin: 2px 0 0; font-size: 34px; font-weight: 900; letter-spacing: -.035em; }
-.bt-sub { margin: 3px 0 0; font-size: 11.5px; font-weight: 600; color: var(--ink2); }
-.bt-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 11px; }
-.wchip {
-  display: flex; align-items: center; gap: 8px; background: var(--card);
-  border: 1px solid var(--card-line); border-radius: 999px; padding: 6px 13px 6px 7px;
-  font: inherit; color: var(--ink); cursor: pointer; max-width: 100%;
-}
-.wchip:hover { background: var(--card-3); }
-.wchip.stale { opacity: .72; }
-.wchip i {
-  width: 24px; height: 24px; border-radius: 50%; background: var(--track);
-  display: grid; place-items: center; font-style: normal; font-size: 12px; flex: none;
-}
-.wc-text { min-width: 0; display: flex; flex-direction: column; text-align: left; }
-.wc-text b { font-size: 13.5px; font-weight: 800; letter-spacing: -.01em; }
-.wc-text span {
-  font-size: 11px; font-weight: 700; color: var(--ink2);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.bt-lab { margin: 0; font-size: 12px; font-weight: 700; color: var(--ink2); }
+.bt-big { margin: 2px 0 0; font-size: 32px; font-weight: 900; letter-spacing: -.035em; }
+.bt-sub { margin: 3px 0 0; font-size: 11.5px; font-weight: 600; color: var(--muted); }
 
-/* ---- the named ring, and the cards under it ---------------------------- */
-/* On the element and not inherited: ".gauge path" sets the 14-unit stroke the
-   arc gauge is drawn with, and that beats anything coming down from a parent. */
-.gauge .ring-lead, .ring-lead { fill: none; stroke: var(--card-line); stroke-width: 1; }
-.ring-lname { font-size: 6.8px; font-weight: 800; fill: var(--ink); }
-.ring-lsub { font-size: 6.1px; font-weight: 700; fill: var(--ink2); }
-/* The names live in the margins of the drawing, so the drawing wants the whole
-   card - and the figure in the hole gives up its headline size to pay for it,
-   because under minted the headline is the balance above. */
-/* Beats ':root[data-look="minted"] .gauge', which caps the plain ring at the
-   232px it wants; a named ring needs every pixel of the card for its margins. */
-:root[data-look="minted"] .gauge.named { max-width: none; }
-.gauge.named .gauge-big { font-size: 25px; }
-.gauge.named .gauge-of { font-size: 12px; }
-
-.hero-cats {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 9px; margin-top: 12px;
+/* ---- one list, used by the wallets and by the categories ----------------
+   Rows with a hairline between them and nothing drawn around them. A card
+   for every line is six boxes doing the work of one list, and the ring is
+   already as much furniture as the screen can carry. */
+.mrows { margin-top: 11px; }
+.mrow {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 10px 0; background: none; border: 0; border-top: 1px solid var(--card-line);
+  font: inherit; color: var(--ink); cursor: pointer;
 }
-.hero-cats:empty { display: none; }
-.hcat {
-  display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
-  background: var(--card-2); border: 1px solid var(--card-line); border-radius: var(--r-md);
-  padding: 9px; font: inherit; color: var(--ink); cursor: pointer;
+.mrow:first-child { border-top: 0; }
+.mrow:hover .mname { color: var(--tint); }
+.msq {
+  width: 34px; height: 34px; border-radius: 11px; flex: none; background: var(--card-2);
+  display: grid; place-items: center; font-size: 16px; line-height: 1;
 }
-.hcat:hover { background: var(--card-3); }
-.hc-dial { position: relative; width: 42px; height: 42px; flex: none; }
-.hc-dial svg { display: block; width: 42px; height: 42px; }
-.hc-dial em {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  font-style: normal; font-size: 17px; line-height: 1;
-}
-.hc-text { min-width: 0; display: flex; flex-direction: column; }
-.hc-name {
-  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+.mtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.mname {
+  font-size: 14.5px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
-.hc-pct { font-size: 11px; font-weight: 700; color: var(--ink2); }
-.hc-amt { font-size: 16.5px; font-weight: 800; letter-spacing: -.02em; }
+.mwhen { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.mamt {
+  font-size: 15px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap;
+}
+.mgo { color: var(--muted); font-size: 15px; font-weight: 700; flex: none; }
+
+/* ---- the categories under the ring -------------------------------------- */
+.hero-cats:empty { display: none; }
+.hero-cats { margin-top: 10px; }
+
+/* Under minted the ring is the picture and the list is the reading, so what
+   is left of the budget stops being a badge and becomes a caption. */
+:root[data-look="minted"] .gauge-state {
+  background: none; border: 0; padding: 0; margin-top: 12px;
+  font-size: 12px; color: var(--muted);
+}
+:root[data-look="minted"] .gauge-state.over { background: none; color: var(--bad); }
 
 /* Pie, then the spending, then the wallets. The view is already a column, so
    this is an order and not a second copy of the markup. */
