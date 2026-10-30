@@ -1240,6 +1240,38 @@ tr.is-stale { opacity: .55; }
 :root[data-look="minted"] .bc-go    { grid-area: go; justify-self: end; }
 :root[data-look="minted"] .bal-name { font-weight: 700; }
 
+/* The budget lines as tiles: a dial, an icon, and the two figures. The icon
+   is what you find the line by - at this size a name is read second. */
+#home-budgets.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btile {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  background: var(--card); border: 1px solid var(--card-line);
+  border-radius: var(--r-md); padding: 12px; font: inherit; color: var(--ink);
+  box-shadow: var(--card-shadow);
+}
+.btile:hover { background: var(--card-3); border-color: var(--card-line-strong); }
+.bt-dial { position: relative; width: 40px; height: 40px; flex: none; }
+.bt-dial svg { display: block; width: 40px; height: 40px; }
+.bt-dial em {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-style: normal; font-size: 16px; line-height: 1;
+}
+.bt-text { min-width: 0; display: flex; flex-direction: column; }
+.bt-name {
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bt-amt { font-size: 16px; font-weight: 800; letter-spacing: -.02em; }
+.bt-of { font-size: 11px; color: var(--ink2); font-weight: 600; }
+.btile.over .bt-amt { color: var(--bad); }
+
+/* Pie, then the spending, then the wallets. The view is already a column, so
+   this is an order and not a second copy of the markup. */
+:root[data-look="minted"] .view[data-view="home"] > .hello { order: -4; }
+:root[data-look="minted"] .view[data-view="home"] > #window-warning { order: -3; }
+:root[data-look="minted"] .view[data-view="home"] > .gauge-card { order: -2; }
+:root[data-look="minted"] .view[data-view="home"] > #home-budgets-sec { order: -1; }
+
 /* Nunito sits lighter than Inter at the same number, so the things that are
    meant to read as headlines are given the weight back. */
 :root[data-look="minted"] .gauge-big,

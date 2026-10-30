@@ -3441,6 +3441,55 @@ function renderSpark(all, todayIso) {
   if (strip) strip.innerHTML = letters.map((l) => `<span>${escapeHtml(l)}</span>`).join('');
 }
 
+/*
+ * A picture for each budget line.
+ *
+ * Minted draws the lines as tiles, and a tile needs something in the middle of
+ * its dial. There is no icon set in here and no room to add one, so these are
+ * emoji: they come with the phone, they cost nothing, and they are the one
+ * thing on the screen that is recognised before it is read. Matched on words
+ * in the line's own NAME, so a budget called "Shopping & gifts" still finds
+ * one and a renamed line does not go blank.
+ */
+const LINE_ICONS = [
+  [/rent|hous|mortgage/i, '\u{1F3E0}'],
+  [/grocer|supermarket|food|shop/i, '\u{1F9FA}'],
+  [/transport|fuel|petrol|matatu|uber|car|mechanic/i, '\u{26FD}'],
+  [/airtime|data|bundle/i, '\u{1F4F1}'],
+  [/internet|wifi|fibre|fiber/i, '\u{1F4E1}'],
+  [/electric|power|kplc|token/i, '\u{1F4A1}'],
+  [/water|gas|utilit/i, '\u{1F4A7}'],
+  [/family|people|sent|support/i, '\u{1F91D}'],
+  [/health|pharm|medic|hospital|clinic/i, '\u{1F48A}'],
+  [/personal|salon|barber|care/i, '\u{1F9F4}'],
+  [/entertain|movie|night|fun/i, '\u{1F3AC}'],
+  [/subscri|netflix|spotify|stream/i, '\u{1F501}'],
+  [/school|fee|educat|tuition/i, '\u{1F393}'],
+  [/dining|restaurant|takeaway|eat/i, '\u{1F37D}'],
+  [/sav(e|ing)|invest/i, '\u{1F3E6}'],
+  [/loan|credit|debt|repay/i, '\u{1F4B3}'],
+  [/cash|withdraw/i, '\u{1F4B5}'],
+  [/staff|househelp|nanny|garden/i, '\u{1F9F9}'],
+  [/gov|licen|tax|permit/i, '\u{1F3DB}'],
+];
+const lineIcon = (name) => {
+  for (const [re, icon] of LINE_ICONS) if (re.test(name)) return icon;
+  return '\u{1F4B0}';
+};
+
+/** The little ring around a tile's icon: how far through the line you are. */
+function tileDial(pct, colour) {
+  const R = 16;
+  const C = 2 * Math.PI * R;
+  const on = Math.max(0, Math.min(1, pct)) * C;
+  return `<svg viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="var(--track)" stroke-width="3.5"/>
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="${colour}" stroke-width="3.5"
+              stroke-linecap="round" stroke-dasharray="${on} ${C - on}"
+              transform="rotate(-90 20 20)"/>
+    </svg>`;
+}
+
 /** Each budget line as a card: what is left, and how far through it you are. */
 function renderHomeBudgets(report, budgeted, month) {
   const box = $('#home-budgets');
@@ -3452,7 +3501,12 @@ function renderHomeBudgets(report, budgeted, month) {
     return;
   }
   // Worst first: a line you have blown through is the one worth seeing.
-  const rows = lines.slice().sort((a, b) => b.spent / b.amount - a.spent / a.amount).slice(0, 4);
+  const mint = lookNow() === 'minted';
+  const rows = lines
+    .slice()
+    .sort((a, b) => b.spent / b.amount - a.spent / a.amount)
+    .slice(0, mint ? 6 : 4);
+  box.classList.toggle('tiles', mint);
   box.innerHTML = rows
     .map((r) => {
       const left = r.amount - r.spent;
@@ -3467,6 +3521,21 @@ function renderHomeBudgets(report, budgeted, month) {
         ? `data-drill-cats="${escapeHtml(covers.join('|'))}" data-drill-label="${escapeHtml(r.label)}"` +
           ` data-drill-budget="${escapeHtml(r.id)}"`
         : 'data-go="budget"'; // a line with nothing mapped has nothing to show
+      if (mint) {
+        // The dial takes its colour from where the ring takes its slice's, so
+        // a hue means one thing on the whole screen.
+        const cat = covers[0];
+        const colour = cat ? viz.seriesColour(store.chartSlots([cat])[cat] ?? 7) : 'var(--tint)';
+        return `<button class="btile${over ? ' over' : ''}" type="button" ${opens}>
+          <span class="bt-dial">${tileDial(r.spent / r.amount, over ? 'var(--bad)' : colour)}
+            <em>${lineIcon(r.label)}</em></span>
+          <span class="bt-text">
+            <span class="bt-name">${escapeHtml(r.label)}</span>
+            <span class="bt-amt">${viz.fmt(r.spent)}</span>
+            <span class="bt-of">of ${viz.fmt(r.amount)}</span>
+          </span>
+        </button>`;
+      }
       return `<button class="bcard" type="button" ${opens}>
         <span class="bc-icon ${over ? 'neg' : ''}" aria-hidden="true">${over ? '!' : '●'}</span>
         <span class="bc-text">
@@ -4045,7 +4114,11 @@ function renderHome(all) {
     if (mint) {
       const hrows = viz.donutRows(viz.byCategory(cycle));
       const hslots = store.chartSlots(hrows.map((r) => r.category));
-      viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, { middle: false, legend: false });
+      viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, {
+        middle: false,
+        legend: false,
+        round: true,
+      });
       wireDrill(ringBox);
     } else {
       ringBox.innerHTML = '';

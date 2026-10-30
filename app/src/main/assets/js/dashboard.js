@@ -532,8 +532,20 @@ const drillAttr = (r) =>
  * @param {boolean} o.legend  false draws the ring alone.
  * @param {boolean} o.ring    false draws the legend alone - for a page that
  *                            is already carrying this ring further up.
+ * @param {boolean} o.round   rounded ends, which is what makes the ring read
+ *                            as ribbons rather than tiles. It costs accuracy
+ *                            at the bottom: a cap is half the stroke wide at
+ *                            each end, so no slice can draw thinner than the
+ *                            stroke, and anything under about 5% reads the
+ *                            same size. Only worth it where the exact figures
+ *                            are written out directly underneath.
  */
-export function renderDonut(el, rows, slotOf, { label = 'spent', middle = true, legend = true, ring = true } = {}) {
+export function renderDonut(
+  el,
+  rows,
+  slotOf,
+  { label = 'spent', middle = true, legend = true, ring = true, round = false } = {},
+) {
   const total = rows.reduce((a, r) => a + r.total, 0);
   if (!rows.length || total <= 0) {
     el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
@@ -541,22 +553,26 @@ export function renderDonut(el, rows, slotOf, { label = 'spent', middle = true, 
   }
 
   const R = 52;
-  const W = 16;
+  const W = round ? 13 : 16;
   const C = 2 * Math.PI * R;
   // A 2px gap in the surface colour is what separates touching slices - never a
   // stroke around them, which would add ink that is not data. In this viewBox
   // 1.6 units lands at about 2px once the ring is drawn at its real size.
-  const GAP = rows.length > 1 ? 1.6 : 0;
+  const GAP = rows.length > 1 ? (round ? 3 : 1.6) : 0;
+  // A round cap hangs half a stroke past each end of the dash, so the dash has
+  // to give that back or every slice grows by a stroke width.
+  const CAP = round ? W : 0;
 
   let at = 0;
   const arcs = rows
     .map((r) => {
-      const len = Math.max((r.total / total) * C - GAP, 0.6);
+      const len = Math.max((r.total / total) * C - GAP - CAP, 0.6);
       const dash = `${len} ${C - len}`;
       const offset = -at;
       at += (r.total / total) * C;
       return `<circle class="ring-arc" cx="60" cy="60" r="${R}" fill="none"
                  stroke="${seriesColour(slotOf(r.category))}" stroke-width="${W}"
+                 ${round ? 'stroke-linecap="round"' : ''}
                  stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
                  ${drillAttr(r)}><title>${esc(r.category)}: ${fmt(r.total)}</title></circle>`;
     })
