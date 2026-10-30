@@ -92,7 +92,7 @@ const RULES = [
   // to the next rule and gets the car. Both matched the one rule before this,
   // which is how the ring ended up with two pumps on it.
   [/transport|fuel|petrol|matatu|uber|fare/i, 'fuel'],
-  [/car\b|mechanic|garage|service/i, 'car'],
+  [/car\b|mechanic|garage|panel ?beat/i, 'car'],
   [/airtime|data|bundle/i, 'phone'],
   [/internet|wifi|fibre|fiber|online/i, 'wifi'],
   [/electric|power|kplc|token/i, 'bolt'],
@@ -118,6 +118,44 @@ const RULES = [
 
 /** The name of the glyph a category gets - "tag" when nothing matches. */
 export const glyphFor = (name) => (RULES.find(([re]) => re.test(name || '')) || [0, 'tag'])[1];
+
+/** Every glyph a name matches, best first, then the generic ones. */
+const SPARE = ['tag', 'dots', 'swap', 'pin', 'gift', 'send', 'question'];
+const allFor = (name) =>
+  RULES.filter(([re]) => re.test(name || '')).map(([, g]) => g).concat(SPARE);
+
+/**
+ * Glyphs for a whole list at once, no two the same.
+ *
+ * One rule can honestly cover two different lines - "Car & Mechanic" and
+ * "Garage" are both the car - and on a ring that reads as a mistake, because
+ * the icon is the only thing saying which slice is which. So a name that
+ * wants a glyph already taken falls through to the next rule it matches, and
+ * then to a spare. The list is walked in the order given, which everywhere
+ * that calls this means biggest first: the big slice keeps the right icon and
+ * the small one does the moving.
+ */
+export function glyphMap(names) {
+  const used = new Set();
+  const out = {};
+  const todo = [...new Set(names)];
+  // Everyone with a rule of their own goes first, so a name that matched
+  // nothing cannot take the spare that "Everything else" is owed.
+  for (const name of todo) {
+    const first = RULES.find(([re]) => re.test(name || ''));
+    if (first && !used.has(first[1])) {
+      used.add(first[1]);
+      out[name] = first[1];
+    }
+  }
+  for (const name of todo) {
+    if (out[name]) continue;
+    const pick = allFor(name).find((g) => !used.has(g)) || 'tag';
+    used.add(pick);
+    out[name] = pick;
+  }
+  return out;
+}
 
 /**
  * Just the <path> elements, for dropping inside a <g> that already carries the

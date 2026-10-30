@@ -596,15 +596,21 @@ export function renderDonut(
   let pins = '';
   if (iconOf && rows.length) {
     const SEP = (2 * PIN_R + 1.6) / C;
-    const n = rows.length;
+    // A slice carries an icon when the slice is at least as wide as the icon.
+    // Below that it is a sliver: the disc would be wider than the colour it
+    // is standing on, and a row of them crowds the one part of the ring that
+    // has the least to say. The small categories are still in the list under
+    // the ring, which is where their names are anyway.
+    const FITS = (2 * PIN_R) / C;
     let seen = 0;
-    const want = rows.map((r) => {
+    const show = [];
+    for (const r of rows) {
       const share = r.total / total;
-      const mid = seen + share / 2;
+      if (share >= FITS) show.push({ row: r, mid: seen + share / 2 });
       seen += share;
-      return mid;
-    });
-    const at = want.slice();
+    }
+    const n = show.length;
+    const at = show.map((p) => p.mid);
     // Relaxation: the slices are already in order round the circle, so a pass
     // only has to push each neighbouring pair apart - including the last pair,
     // which meets round the back at twelve o'clock.
@@ -624,7 +630,7 @@ export function renderDonut(
         if (worst < 1e-5) break;
       }
     }
-    rows.forEach((r, i) => {
+    show.forEach(({ row: r }, i) => {
       const a = (at[i] * 2 - 0.5) * Math.PI;
       const x = 60 + Math.cos(a) * R;
       const y = 60 + Math.sin(a) * R;

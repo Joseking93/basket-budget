@@ -23,7 +23,7 @@ import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
 import * as cash from './cash.js';
-import { glyphFor, glyphPaths, iconFor } from './icons.js';
+import { glyphFor, glyphMap, glyphPaths, glyphSvg } from './icons.js';
 import { cycleStartOf } from './salary.js';
 import { suggestFor, guessFor } from './suggest.js';
 import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
@@ -3489,6 +3489,8 @@ function renderHomeBudgets(report, budgeted, month) {
     .sort((a, b) => b.spent / b.amount - a.spent / a.amount)
     .slice(0, mint ? 6 : 4);
   box.classList.toggle('tiles', mint);
+  // Biggest trouble first, so the line most worth reading keeps its own icon.
+  const tileGlyphs = glyphMap(rows.map((r) => r.label));
   box.innerHTML = rows
     .map((r) => {
       const left = r.amount - r.spent;
@@ -3510,7 +3512,8 @@ function renderHomeBudgets(report, budgeted, month) {
         const colour = cat ? viz.seriesColour(store.chartSlots([cat])[cat] ?? 7) : 'var(--tint)';
         return `<button class="btile${over ? ' over' : ''}" type="button" ${opens}>
           <span class="bt-dial">${tileDial(r.spent / r.amount, over ? 'var(--bad)' : colour)}
-            <em>${iconFor(r.label, over ? 'var(--bad)' : colour)}</em></span>
+            <em>${glyphSvg(tileGlyphs[r.label] || glyphFor(r.label),
+              over ? 'var(--bad)' : colour)}</em></span>
           <span class="bt-text">
             <span class="bt-name">${escapeHtml(r.label)}</span>
             <span class="bt-amt">${viz.fmt(r.spent)}</span>
@@ -4100,11 +4103,13 @@ function renderHome(all) {
       // fell back to slot 7, which is where it came out the same red as the
       // category already sitting there.
       const hslots = store.chartSlots([...hrows.map((r) => r.category), viz.REST_LABEL]);
+      // Resolved over the whole ring at once, so two slices never share one.
+      const hglyphs = glyphMap(hrows.map((r) => r.category));
       viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, {
         middle: false,
         legend: false,
         hero: true,
-        iconOf: (c) => glyphPaths(glyphFor(c)),
+        iconOf: (c) => glyphPaths(hglyphs[c] || glyphFor(c)),
       });
       wireDrill(ringBox, month);
     } else {
