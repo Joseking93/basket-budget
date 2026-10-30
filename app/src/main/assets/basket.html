@@ -126,6 +126,9 @@ textarea{font-family:var(--mono);font-size:12px;width:100%;box-sizing:border-box
 .rcard{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;
   text-align:left;background:var(--card);border:1px solid var(--card-line);border-radius:16px;
   padding:14px 16px;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--card-shadow)}
+.rcard .ricon{width:38px;height:38px;border-radius:50%;flex:none;display:grid;
+  place-items:center;font-size:19px;line-height:1;background:var(--track)}
+.rcard .rtext{flex:1 1 auto;min-width:0}
 .rcard .when{font-weight:600;font-size:16px}
 .rcard .sub2{font-size:13px;color:var(--ink2)}
 .rcard .amt{font-family:var(--mono);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -832,6 +835,41 @@ function keepReceipt(items){
 const lineTotalOf=i=>i.price*i.qty;
 const receiptSum=r=>r.items.reduce((s,i)=>s+lineTotalOf(i),0);
 
+/* ---- what a receipt was mostly for ------------------------------------
+   A receipt carries no shop name - only a date, its lines and a total - so
+   the icon on its card is worked out from the lines themselves: every item
+   is put in a bucket, the money in each bucket is added up, and the biggest
+   bucket wins. Anything unrecognised counts as shopping, which is what a
+   till slip mostly is, so a weekly shop with one bar of soap on it still
+   reads as a shop.
+
+   These rules are kept HERE and not imported from js/icons.js: this page has
+   to work on its own with a plain script, and the words it matches are the
+   things in a Kenyan trolley rather than the names of budget lines. */
+var ITEM_KINDS=[
+  [/petrol|diesel|fuel|v-?power|unleaded/i,'⛽️'],
+  [/airtime|bundle|scratch *card|credo/i,'📱'],
+  [/panadol|pharm|medic|syrup|tablet|capsule|brufen|antibio|plaster/i,'💊'],
+  [/omo|sunlight|sabuni|soap|detergent|bleach|jik|harpic|tissue|toilet *roll|pamper|diaper|mop|broom|dust *bin/i,'🧹'],
+  [/colgate|toothpaste|tooth *brush|shampoo|lotion|vaseline|razor|deodor|sanitary|pad[s]?\b/i,'💇'],
+  [/soda|coke|fanta|sprite|juice|water|maji|beer|wine|whisk|cider/i,'💧'],
+  [/chips|pizza|burger|takeaway|take *away|restaurant|chicken *&/i,'🍽️'],
+];
+function itemKind(name){
+  var s=String(name||'');
+  for(var i=0;i<ITEM_KINDS.length;i++) if(ITEM_KINDS[i][0].test(s)) return ITEM_KINDS[i][1];
+  return '🧺';
+}
+function receiptIcon(r){
+  var by={},best='🧺',most=-1;
+  (r.items||[]).forEach(function(i){
+    var k=itemKind(i.name);
+    by[k]=(by[k]||0)+lineTotalOf(i);
+  });
+  Object.keys(by).forEach(function(k){ if(by[k]>most){most=by[k];best=k} });
+  return best;
+}
+
 /* A row of name + amount, with the name set as text and never as markup. */
 function row2(name, sub, amount){
   const row=document.createElement('div');
@@ -867,9 +905,11 @@ function renderReceipts(){
     b.type='button';
     b.className='rcard';
     const n=r.items.length;
-    b.innerHTML='<span><span class="when"></span><br><span class="sub2">'+
+    b.innerHTML='<span class="ricon" aria-hidden="true"></span>'+
+      '<span class="rtext"><span class="when"></span><br><span class="sub2">'+
       n+(n===1?' item':' items')+'</span></span><span class="amt">'+fmt(receiptSum(r))+'</span>';
     b.querySelector('.when').textContent=prettyDate(r.date);
+    b.querySelector('.ricon').textContent=receiptIcon(r);
     b.onclick=()=>openReceipt(r.id);
     list.appendChild(b);
   });
