@@ -159,4 +159,46 @@ class QuickmartTest {
         assertEquals(listOf("230297", "280225"), scan.items.map { it.name })
         assertEquals(1489.0, scan.items.sumOf { it.total }, 0.01)
     }
+
+    /**
+     * The same shop as the CAMERA returned it, mangled the way it really was.
+     *
+     * Every misread here is one that came back off the glass: the thousands
+     * comma in the total printed as a dot, with a smear of characters where
+     * the colon should be; "Total Qty" spelt "Total Qty: 5.00 unitsubo"; the
+     * stock code on the spinach, "0023.11.00", which is also a well-formed
+     * date; and a VAT class stuck to the end of every name.
+     */
+    private val mangled = """
+        QUICK MART PLC
+        VAT Reg: 0126/534
+        Branch: 38 Till: 8 Session: 4129 Rct: 48   8
+        Item   Qty   Each   Total
+        PC-HKL-PAMPERS PANTS JR U/SEX JP3*48-Sz G
+        230297   1.000 PC 1299.00   1299.00
+        PC-HKL-PAMPERS PANTS JR U/SEX JP3+48-SZ G
+        230297   1.000 PC 1299.00   1299.00
+        FR-JAR SPINACH PER BUNCH   E
+        0023.11.00 2.000 BU 39.00   78.00
+        HC-UNI VIM LEMON FRESH 1KGon   G
+        280225   1.000 PC 190.00   190.00
+        TOTAL   08888a0g 2.866.00
+        CASH PAID :   0.00
+        MPESA PAY :   2,866.00
+        Total Qty: 5.00 unitsubo
+    """.trimIndent()
+
+    /** A comma read as a dot still groups thousands: 2.866.00 is 2,866. */
+    @Test
+    fun `reads a total whose thousands comma came back as a dot`() {
+        val scan = ReceiptParser.parseText(mangled)
+        assertEquals(2866.0, scan.receiptTotal!!, 0.01)
+    }
+
+    @Test
+    fun `reads every line off the camera's own text`() {
+        val scan = ReceiptParser.parseText(mangled)
+        assertEquals(4, scan.items.size)
+        assertEquals(2866.0, scan.items.sumOf { it.total }, 0.01)
+    }
 }

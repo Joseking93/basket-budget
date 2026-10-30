@@ -60,14 +60,20 @@ object ReceiptParser {
      * into a comma ("170,00") and a trailing zero into a letter ("3,650.0o"),
      * so both are allowed - but only in the cents, never in the shillings.
      *
-     * Either grouped by commas OR a plain run of digits. Written as
+     * The thousands separator is a comma on the paper and a dot about as
+     * often as not on the way back, so both group: a 2,866 shop that came
+     * back as "2.866.00" read as 2.86, which the sanity guard then threw
+     * away, and the slip total went missing altogether. What tells grouping
+     * from a decimal point is position, not punctuation.
+     *
+     * Either grouped OR a plain run of digits. Written as
      * `\d{1,3}(?:,\d{3})*` it could only reach four digits THROUGH a comma, so
      * an ungrouped "1299.00" matched as "299.00" - the shilling silently
      * dropped, on every till that prints thousands without a comma. The
      * lookbehind stops it finding that tail inside a longer number.
      */
     private const val MONEY_PAT =
-        """(?<![\d.,])(?:\d{1,3}(?:,\d{3})+|\d+)[.,][0-9oO]{2}"""
+        """(?<![\d.,])(?:\d{1,3}(?:[.,]\d{3})+|\d+)[.,][0-9oO]{2}"""
     private val MONEY = Regex(MONEY_PAT)
 
     /**
@@ -733,7 +739,7 @@ object ReceiptParser {
     /** Reads "1,730.00", "170,00" and "3,650.0o" as the same kind of thing. */
     private fun toMoney(s: String): Double {
         val cut = s.length - 3
-        val shillings = s.substring(0, cut).replace(",", "")
+        val shillings = s.substring(0, cut).replace(",", "").replace(".", "")
         val cents = s.substring(cut + 1).replace('o', '0').replace('O', '0')
         return (shillings + "." + cents).toDoubleOrNull() ?: 0.0
     }
@@ -744,8 +750,16 @@ object ReceiptParser {
         return s.replace('o', '0').replace('O', '0').toDoubleOrNull()
     }
 
+    /**
+     * The last figure on a row, read as money where it is money.
+     *
+     * NUMBER stops at two decimals, so a dot-grouped "2.866.00" looks to it
+     * like two figures and it keeps the second one - six shillings, off a
+     * 2,866 shop. MONEY reads the whole thing, so it gets asked first.
+     */
     private fun lastNumber(s: String): Double? =
-        NUMBER.findAll(s).lastOrNull()?.let { toNumber(it.value) }
+        MONEY.findAll(s).lastOrNull()?.let { toMoney(it.value) }
+            ?: NUMBER.findAll(s).lastOrNull()?.let { toNumber(it.value) }
 
     private fun round2(v: Double): Double = (v * 100).roundToLong() / 100.0
 }

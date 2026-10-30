@@ -734,37 +734,61 @@ const MONTHS=['January','February','March','April','May','June','July','August',
 const prettyDate=s=>{const p=s.split('-').map(Number);return p[2]+' '+MONTHS[p[1]-1]+' '+p[0]};
 const prettyMonth=s=>{const p=s.split('-').map(Number);return MONTHS[p[1]-1]+' '+p[0]};
 
-/* The slip carries three dates: the fiscal header's "29 Oct 2026", the loyalty
-   slip's "As At 28-10-2026" (when the POINTS balance was struck, not when you
-   shopped) and the control unit's "10-29-2026" in month-day order. The header
-   is the only one that means this shop, and a month spelt out cannot be read
-   back to front, so it is looked for first. */
+/* The slip carries several dates and OCR mangles all of them.
+
+   The fiscal header "30 October 2026" came back as "30 0ctober 2006" - a
+   printed O read as a zero, and the year off by twenty. The loyalty slip's
+   "As At 28-10-2026" is when the POINTS balance was struck, not when you
+   shopped. And the stock code on a line of spinach, "0023.11.00", is a
+   perfectly well-formed 23 November 2000, which is the date a shop got filed
+   under.
+
+   So every candidate is collected and then measured against today: a till
+   slip you are holding up to the camera was printed in the last few months,
+   and never tomorrow. Anything outside that window is a misread whatever
+   shape it has, and today is a far better guess than the year 2000. A row
+   that says "date" is believed before a row that merely looks like one, and
+   the date on the receipt can be corrected by hand either way. */
 function receiptDate(rows){
   const text=rows||[];
   const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
   const pad=v=>String(v).padStart(2,'0');
+  const now=Date.parse(iso(new Date()));
   const make=(y,mo,d)=>{
     if(y<100)y+=2000;
     if(mo>12&&d<=12){const t=d;d=mo;mo=t}
-    if(mo<1||mo>12||d<1||d>31||y<2000||y>2100)return null;
-    return y+'-'+pad(mo)+'-'+pad(d);
+    if(mo<1||mo>12||d<1||d>31)return null;
+    const s=y+'-'+pad(mo)+'-'+pad(d);
+    const t=Date.parse(s);
+    // Not tomorrow, and not more than about a year ago.
+    if(isNaN(t)||t>now+86400000||t<now-400*86400000)return null;
+    return s;
   };
-  const named=/(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})/;
+  /* A printed O comes back as a zero, an l as a one, an S as a five and a B
+     as an eight, so "0ctober", "Ju1y", "5eptember" and "Fe8ruary" are all
+     months. */
+  const letters=s=>s.toLowerCase().replace(/0/g,'o').replace(/1/g,'l')
+    .replace(/5/g,'s').replace(/8/g,'b');
+  const named=/(\d{1,2})\s+([A-Za-z0-9]{3,9})\.?\s+(\d{4})/g;
   for(const row of text){
-    const m=named.exec(row);
-    if(!m)continue;
-    const mo=MON[m[2].slice(0,3).toLowerCase()];
-    if(!mo)continue;
-    const got=make(+m[3],mo,+m[1]);
-    if(got)return got;
+    for(const m of String(row).matchAll(named)){
+      const mo=MON[letters(m[2]).slice(0,3)];
+      if(!mo)continue;
+      const got=make(+m[3],mo,+m[1]);
+      if(got)return got;
+    }
   }
-  const numeric=/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/;
-  for(const row of text){
-    if(/\bas\s+at\b|points/i.test(row))continue;
-    const m=numeric.exec(row);
-    if(!m)continue;
-    const got=make(+m[3],+m[2],+m[1]);
-    if(got)return got;
+  const numeric=/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/g;
+  for(const labelled of [true,false]){
+    for(const row of text){
+      const line=String(row);
+      if(/\bas\s+at\b|points/i.test(line))continue;
+      if(/\bdate\b/i.test(line)!==labelled)continue;
+      for(const m of line.matchAll(numeric)){
+        const got=make(+m[3],+m[2],+m[1]);
+        if(got)return got;
+      }
+    }
   }
   return iso(new Date());
 }
