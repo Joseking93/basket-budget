@@ -3464,7 +3464,9 @@ const LINE_ICONS = [
   [/personal|salon|barber|care/i, '\u{1F9F4}'],
   [/entertain|movie|night|fun/i, '\u{1F3AC}'],
   [/subscri|netflix|spotify|stream/i, '\u{1F501}'],
-  [/school|fee|educat|tuition/i, '\u{1F393}'],
+  // Not "fee": a line called "Cash, fees & other" is not school fees, and
+  // the first rule that matches wins. School is named by its own words.
+  [/school|educat|tuition|term \d/i, '\u{1F393}'],
   [/dining|restaurant|takeaway|eat/i, '\u{1F37D}'],
   [/sav(e|ing)|invest/i, '\u{1F3E6}'],
   [/loan|credit|debt|repay/i, '\u{1F4B3}'],
