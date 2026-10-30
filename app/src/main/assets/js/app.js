@@ -274,7 +274,12 @@ function render() {
   const ringRows = viz.donutRows(cats);
   const slots = store.chartSlots(ringRows.map((r) => r.category));
   const slotOf = (c) => slots[c] ?? 7;
-  viz.renderDonut($('#chart-ring'), ringRows, slotOf, { label: 'spent this cycle' });
+  // Minted already has this ring at the top of the home screen, so down here
+  // it is the ranked list alone: one ring per screen.
+  viz.renderDonut($('#chart-ring'), ringRows, slotOf, {
+    label: 'spent this cycle',
+    ring: lookNow() !== 'minted',
+  });
   viz.renderCategoryBars($('#chart-categories'), cats, slotOf);
   wireDrill($('#chart-ring'));
   wireDrill($('#chart-categories'));
@@ -3104,6 +3109,16 @@ function wire() {
     render(); // charts pick colors per-mode, so they must be redrawn
   });
 
+  // The look changes what the hero card DRAWS, not only its colours, so this
+  // one has to re-render too.
+  const lookBtn = $('#btn-look');
+  if (lookBtn) {
+    lookBtn.addEventListener('click', () => {
+      applyLook(lookNow() === 'minted' ? 'default' : 'minted');
+      render();
+    });
+  }
+
   $('#btn-reset').addEventListener('click', () => {
     if (confirm('Delete all transactions and rules from this browser? Export a backup first if you want to keep them.')) {
       store.reset();
@@ -3158,6 +3173,7 @@ function registerSW() {
 
 async function init() {
   startTheme();
+  startLook();
 
   store.load();
   // Identity must reach config before anything parses or categorises — isSelf() and
@@ -4019,6 +4035,33 @@ function renderHome(all) {
   const monthOf = monthResolver(all);
   const cycle = all.filter((t) => monthOf(t) === month);
   const cs = viz.summarise(cycle);
+
+  // Minted draws this cycle as a ring of categories with the figure above in
+  // the middle of it, instead of the arc: the same share of the budget, plus
+  // the shape of what it went on, in the space the arc was using anyway.
+  const mint = lookNow() === 'minted';
+  const ringBox = $('#hero-ring');
+  if (ringBox) {
+    if (mint) {
+      const hrows = viz.donutRows(viz.byCategory(cycle));
+      const hslots = store.chartSlots(hrows.map((r) => r.category));
+      viz.renderDonut(ringBox, hrows, (c) => hslots[c] ?? 7, { middle: false, legend: false });
+      wireDrill(ringBox);
+    } else {
+      ringBox.innerHTML = '';
+    }
+  }
+
+  // Where the cycle has got to, against where the money has got to. Only
+  // minted shows it: the standard look says the same thing in the arc.
+  const bar = document.querySelector('.hero-bar');
+  if (bar) {
+    bar.hidden = !mint || budgeted <= 0;
+    const gone = (Date.parse(todayIso) - Date.parse(from)) / (Date.parse(to) - Date.parse(from) || 1);
+    bar.style.setProperty('--today', `${Math.max(0, Math.min(1, gone)) * 100}%`);
+    $('#hero-fill').style.width = `${Math.max(0, Math.min(1, share)) * 100}%`;
+    $('#hero-fill').classList.toggle('over', share > 1);
+  }
   $('#chip-spent').textContent = viz.fmt(cs.realSpend);
   $('#chip-in').textContent = viz.fmt(cs.income);
   $('#chip-days').textContent = days === 0 ? 'Last' : days;
@@ -4161,6 +4204,52 @@ function pullBasketReceipts() {
  * bolted together. The old per-page keys are read once so nothing resets.
  */
 const THEME_KEY = 'budget-theme';
+/*
+ * The LOOK is a second dimension, not a third theme: minted repaints the same
+ * tokens and keeps its own light and dark, so the day/night switch goes on
+ * meaning what it always meant.
+ */
+const LOOK_KEY = 'budget-look';
+
+/** What the Android status bar is painted, which CSS cannot tell it. */
+function chromeColour(mode, look) {
+  if (look === 'minted') return mode === 'dark' ? '#07130D' : '#E4F2E6';
+  return mode === 'dark' ? '#000000' : '#F2F2F7';
+}
+
+const lookNow = () => document.documentElement.dataset.look || 'default';
+
+function applyLook(look) {
+  const root = document.documentElement;
+  if (look === 'minted') root.dataset.look = 'minted';
+  else delete root.dataset.look;
+  root.style.background = '';
+  const label = $('#look-label');
+  if (label) label.textContent = look === 'minted' ? 'Standard look' : 'Minted look';
+  try {
+    localStorage.setItem(LOOK_KEY, look);
+  } catch (e) {
+    /* private browsing */
+  }
+  try {
+    if (window.Android && window.Android.setChrome) {
+      const mode = root.dataset.theme;
+      window.Android.setChrome(chromeColour(mode, look), mode === 'dark');
+    }
+  } catch (e) {
+    /* older build without the bridge */
+  }
+}
+
+function startLook() {
+  let look = null;
+  try {
+    look = localStorage.getItem(LOOK_KEY);
+  } catch (e) {
+    look = null;
+  }
+  applyLook(look === 'minted' ? 'minted' : 'default');
+}
 
 function applyTheme(mode) {
   document.documentElement.dataset.theme = mode;
@@ -4184,7 +4273,7 @@ function applyTheme(mode) {
   // The status and navigation bars are Android's, so they have to be told.
   try {
     if (window.Android && window.Android.setChrome) {
-      window.Android.setChrome(mode === 'dark' ? '#000000' : '#F2F2F7', mode === 'dark');
+      window.Android.setChrome(chromeColour(mode, lookNow()), mode === 'dark');
     }
   } catch (e) {
     /* older build without the bridge */

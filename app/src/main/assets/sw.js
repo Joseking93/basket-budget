@@ -9,7 +9,7 @@
 // there's no obvious way to hard-refresh.
 
 // Bump when the shell list changes so the old cache is dropped on activate.
-const VERSION = 'budget-tracker-v3';
+const VERSION = 'budget-tracker-v4';
 
 const SHELL = [
   './',
@@ -39,6 +39,7 @@ const SHELL = [
   './js/statement.js',
   './js/store.js',
   './fonts/inter-var-latin.woff2',
+  './fonts/nunito-var-latin.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];

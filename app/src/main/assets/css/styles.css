@@ -1187,4 +1187,65 @@ tr.is-stale { opacity: .55; }
 @media (max-width: 640px) {
   .hero-big { font-size: 34px; }
 }
+/* ── Minted: the shape, not just the paint ─────────────────────────────────
+   The colours are in theme.css; these are the few places where minted wants a
+   different ARRANGEMENT - the cycle drawn as a ring instead of an arc, a pace
+   bar under it, and the accounts as a row you swipe rather than a list.
+   Everything here is scoped to the look, so the standard one is untouched.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* The ring and the arc live in the same box; one of them is shown. */
+.gauge-ring { display: none; }
+:root[data-look="minted"] .gauge-ring { display: block; }
+:root[data-look="minted"] .gauge-arc { display: none; }
+:root[data-look="minted"] .gauge { max-width: 232px; }
+/* The ring already carries its own 2px gaps; the wrap is only there to
+   centre it and to give the figure in the hole something to sit against. */
+:root[data-look="minted"] .gauge-ring .ring-wrap { width: 100%; margin: 0; }
+:root[data-look="minted"] .gauge-ring .ring { width: 100%; height: auto; }
+/* Centred on the ring rather than tucked under an arc. */
+:root[data-look="minted"] .gauge-mid { inset: 0; }
+:root[data-look="minted"] .gauge-big { font-size: 29px; }
+:root[data-look="minted"] .gauge-of { font-size: 12px; }
+:root[data-look="minted"] .gauge-card { gap: 4px; padding: 20px 16px 16px; }
+
+/* Where the cycle has got to, against where the money has got to. The marker
+   is today; the fill is the budget. Being level is the whole point. */
+:root[data-look="minted"] .hero-bar {
+  position: relative; width: 100%; height: 10px; border-radius: 999px;
+  background: var(--track); overflow: visible; margin-top: 12px;
+}
+:root[data-look="minted"] .hero-bar i { border-radius: 999px; background: var(--tint); }
+:root[data-look="minted"] .hero-bar i.over { background: var(--bad); }
+:root[data-look="minted"] .hero-bar::after {
+  content: ""; position: absolute; top: -4px; bottom: -4px; left: var(--today, 0%);
+  width: 2.5px; border-radius: 2px; background: var(--ink); opacity: .55;
+}
+
+/* The accounts as wallets: one card each, swiped rather than scrolled past. */
+:root[data-look="minted"] .balances {
+  display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+}
+:root[data-look="minted"] .balances::-webkit-scrollbar { display: none; }
+:root[data-look="minted"] .balrow {
+  flex: none; width: 172px; margin: 0; scroll-snap-align: start;
+  grid-template-columns: 34px 1fr;
+  grid-template-areas: "icon go" "text text" "amt amt";
+  align-content: start; gap: 9px 10px; padding: 13px;
+}
+:root[data-look="minted"] .bal-icon { grid-area: icon; }
+:root[data-look="minted"] .bal-text { grid-area: text; }
+:root[data-look="minted"] .bal-amt  { grid-area: amt; font-size: 21px; }
+:root[data-look="minted"] .bc-go    { grid-area: go; justify-self: end; }
+:root[data-look="minted"] .bal-name { font-weight: 700; }
+
+/* Nunito sits lighter than Inter at the same number, so the things that are
+   meant to read as headlines are given the weight back. */
+:root[data-look="minted"] .gauge-big,
+:root[data-look="minted"] .bal-amt,
+:root[data-look="minted"] .chip b,
+:root[data-look="minted"] .duo-big,
+:root[data-look="minted"] .ring-total { font-weight: 800; }
+
 @media print { .decal, .home { display: none !important; } }

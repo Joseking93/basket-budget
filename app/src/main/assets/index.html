@@ -9,14 +9,19 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script>
-  // Before anything paints: the stored theme, and a matching page colour.
+  // Before anything paints: the stored theme and look, and a matching page
+  // colour. Both, because minted's ground is mint rather than grey, and a
+  // strip of the wrong one across the top is exactly what this prevents.
   try {
     var m = localStorage.getItem('budget-theme');
     if (m !== 'light' && m !== 'dark') {
       m = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
+    var k = localStorage.getItem('budget-look') === 'minted' ? 'minted' : '';
     document.documentElement.setAttribute('data-theme', m);
-    document.documentElement.style.background = m === 'dark' ? '#000' : '#f2f2f7';
+    if (k) document.documentElement.setAttribute('data-look', k);
+    document.documentElement.style.background =
+      k ? (m === 'dark' ? '#07130d' : '#e4f2e6') : (m === 'dark' ? '#000' : '#f2f2f7');
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="css/theme.css">
@@ -47,6 +52,10 @@
         <span id="theme-label">Dark appearance</span>
         <span id="theme-icon" class="menu-icon">&#9680;</span>
       </button>
+      <button id="btn-look" class="menurow" type="button">
+        <span id="look-label">Minted look</span>
+        <span class="menu-icon">&#9679;</span>
+      </button>
       <hr>
       <button class="menurow" type="button" data-go="intake">Add transactions<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
       <button class="menurow" type="button" data-go="cats">Categories<svg class="navrow-go" width="7" height="12" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L6.5 6.5L1.5 11.5"/></svg></button>
@@ -71,8 +80,12 @@
          underneath it. The arc is the same number again for people who read a
          shape faster than a total. -->
     <section class="gauge-card">
+      <!-- Two ways of drawing the same cycle. The standard look puts the share
+           spent on an arc; minted puts the category split on a ring with the
+           same figure in the middle of it. One is shown at a time. -->
       <div class="gauge">
-        <svg viewBox="0 0 220 128" aria-hidden="true">
+        <div class="gauge-ring" id="hero-ring"></div>
+        <svg class="gauge-arc" viewBox="0 0 220 128" aria-hidden="true">
           <path class="gauge-track" d="M20 118 A 90 90 0 1 1 200 118" />
           <path class="gauge-fill" id="gauge-fill" d="M20 118 A 90 90 0 1 1 200 118" />
         </svg>

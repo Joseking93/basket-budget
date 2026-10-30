@@ -524,7 +524,16 @@ const drillAttr = (r) =>
     ? `data-drill-cats="${esc(r.rest.join('|'))}" data-drill-label="${esc(REST_LABEL)}"`
     : `data-drill-cat="${esc(r.category)}"`;
 
-export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
+/**
+ * @param {object}  o
+ * @param {boolean} o.middle  false leaves the hole empty - the hero card puts
+ *                            its own figure there, and two totals in one ring
+ *                            is one too many.
+ * @param {boolean} o.legend  false draws the ring alone.
+ * @param {boolean} o.ring    false draws the legend alone - for a page that
+ *                            is already carrying this ring further up.
+ */
+export function renderDonut(el, rows, slotOf, { label = 'spent', middle = true, legend = true, ring = true } = {}) {
   const total = rows.reduce((a, r) => a + r.total, 0);
   if (!rows.length || total <= 0) {
     el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
@@ -553,7 +562,7 @@ export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
     })
     .join('');
 
-  const legend = rows
+  const legendHtml = !legend ? '' : rows
     .map((r) => {
       const pct = Math.round((r.total / total) * 100);
       // The name is always written out: three of the light-mode hues sit under
@@ -571,14 +580,14 @@ export function renderDonut(el, rows, slotOf, { label = 'spent' } = {}) {
     .join('');
 
   el.innerHTML = `
-    <div class="ring-wrap">
+    ${!ring ? '' : `<div class="ring-wrap">
       <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Spending by category">
         <g transform="rotate(-90 60 60)">${arcs}</g>
       </svg>
-      <div class="ring-mid">
+      ${middle ? `<div class="ring-mid">
         <span class="ring-total">${fmt(total)}</span>
         <span class="ring-label">${esc(label)}</span>
-      </div>
-    </div>
-    <div class="legend">${legend}</div>`;
+      </div>` : ''}
+    </div>`}
+    ${legend ? `<div class="legend">${legendHtml}</div>` : ''}`;
 }

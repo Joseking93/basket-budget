@@ -8,8 +8,11 @@
     if (m !== 'light' && m !== 'dark') {
       m = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
+    var k = localStorage.getItem('budget-look') === 'minted' ? 'minted' : '';
     document.documentElement.setAttribute('data-theme', m);
-    document.documentElement.style.background = m === 'dark' ? '#000' : '#f2f2f7';
+    if (k) document.documentElement.setAttribute('data-look', k);
+    document.documentElement.style.background =
+      k ? (m === 'dark' ? '#07130d' : '#e4f2e6') : (m === 'dark' ? '#000' : '#f2f2f7');
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="css/theme.css">
@@ -465,7 +468,9 @@ function applyTheme(mode){
   try{localStorage.setItem(TKEY,mode)}catch(e){}
   /* The status bar is Android's, so it has to be told. */
   if(bridge('setChrome')){
-    try{and().setChrome(mode==='dark'?'#000000':'#F2F2F7',mode==='dark')}catch(e){}
+    const mint=document.documentElement.getAttribute('data-look')==='minted';
+    const bar=mint?(mode==='dark'?'#07130D':'#E4F2E6'):(mode==='dark'?'#000000':'#F2F2F7');
+    try{and().setChrome(bar,mode==='dark')}catch(e){}
   }
 }
 function startTheme(){
@@ -479,10 +484,22 @@ function startTheme(){
 $('themeBtn').onclick=()=>
   applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
 
+/* The name lives in the tracker's settings, one page and one origin away, so
+   this page can simply read it. A heading that says "Basket" on a phone that
+   only ever belongs to one person is a label; his own name is a greeting. */
+function myName(){
+  try{
+    const d=JSON.parse(localStorage.getItem('mpesa-tracker.v1')||'{}');
+    const n=String((d.settings&&d.settings.name)||'').trim();
+    return n?n.split(/\s+/)[0]:'';
+  }catch(e){return ''}
+}
 function greet(){
   const now=new Date();
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   $('today').textContent=days[now.getDay()]+', '+now.getDate()+' '+MONTHS[now.getMonth()];
+  const who=myName();
+  if(who)$('greet').textContent='Hello '+who;
 }
 $('f').onsubmit=e=>{
   e.preventDefault();

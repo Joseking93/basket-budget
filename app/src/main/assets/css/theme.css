@@ -154,6 +154,161 @@
   --blur: none;
 }
 
+/* ── Minted ──────────────────────────────────────────────────────────────
+   A third look, not a third app: `data-look="minted"` repaints the SAME
+   tokens, so every component keeps working without knowing it exists. The
+   day/night switch still switches - minted simply has its own two.
+
+   Mint ground, ink that is green-black rather than black, white cards that
+   lift off it, and one deep green doing the work the lilac used to. The
+   categorical hues in the ring are NOT touched: those are measured for
+   contrast, and a palette is no reason to make a chart harder to read.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Bundled like Inter, for the same reason: it has to survive with no network.
+   The heavy rounded weights are half of why this look reads the way it does,
+   so a fallback to the system sans is a different design. */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url(../fonts/nunito-var-latin.woff2) format('woff2');
+}
+
+:root[data-look="minted"] {
+  color-scheme: light;
+
+  --bg: #e4f2e6;
+  --ink: #0d2117;
+  --ink2: #5c7366;
+  --ink3: #2c4538;
+  --line: #d2e6d6;
+
+  --card: #ffffff;
+  --card-2: #f4faf5;
+  --card-3: #e9f4eb;
+  --card-line: #dcecdf;
+  --card-line-strong: #c9e0ce;
+  --card-shadow: 0 2px 10px rgba(13, 33, 23, 0.06);
+
+  /* A pale panel with the page's own ink on it, not a coloured card with
+     white ink: this is the one that carries the budget. */
+  --hero: #cfe8d5;
+  --hero-line: #bfdfc8;
+  --hero-ink: #0d2117;
+  --hero-dim: #4a6356;
+  --hero-track: rgba(13, 33, 23, 0.14);
+  --track: #dfeee2;
+  --hero-fill: #1f7a51;
+
+  --tint: #1f7a51;
+  --on-tint: #ffffff;
+  --tint-soft: #d8ede1;
+  --tint-line: rgba(31, 122, 81, 0.40);
+
+  --good: #1f7a51;
+  --good-soft: #dff0e6;
+  --warn: #8a4b10;
+  --bad: #c0392b;
+  --bad-soft: rgba(192, 57, 43, 0.10);
+
+  /* Out is sand, in is green, the rest is quiet. */
+  --chip-1: #fdeedd;  --chip-1-ink: #8a4b10;
+  --chip-2: #dff0e6;  --chip-2-ink: #15603e;
+  --chip-3: #e8eeea;  --chip-3-ink: #3f5248;
+
+  --grid: #dde9e0;
+  --axis: #b9cdbf;
+
+  --ramp-1: #d6ece0;
+  --ramp-2: #a9d8c0;
+  --ramp-3: #6fbf9a;
+  --ramp-4: #3f9b74;
+  --ramp-5: #1f7a51;
+
+  --shell: rgba(255, 255, 255, 0.90);
+  --shell-line: #d8e8dc;
+  --shell-shadow: 0 6px 24px rgba(13, 33, 23, 0.12);
+
+  --decal-fill: #d9edde;
+  --decal-line: #c7e2ce;
+
+  --blur: none;
+  --body: "Nunito", "Inter", -apple-system, system-ui, sans-serif;
+  --mono: "Nunito", "Inter", -apple-system, system-ui, sans-serif;
+  --r-sm: 14px;
+  --r-md: 18px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+}
+
+/* Minted after dark: deep forest rather than black, and the mint brightens
+   enough to hold on it. More specific than the block above, so it wins. */
+:root[data-look="minted"][data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #07130d;
+  --ink: #f2fbf5;
+  --ink2: #8da69a;
+  --ink3: #cfe3d7;
+  --line: rgba(255, 255, 255, 0.10);
+
+  --card: #11211a;
+  --card-2: #0d1b15;
+  --card-3: #16291f;
+  --card-line: rgba(255, 255, 255, 0.09);
+  --card-line-strong: rgba(255, 255, 255, 0.18);
+  --card-shadow: none;
+
+  --hero: #16291f;
+  --hero-line: rgba(255, 255, 255, 0.10);
+  --hero-ink: #f2fbf5;
+  --hero-dim: #8da69a;
+  --hero-track: rgba(255, 255, 255, 0.12);
+  --track: rgba(255, 255, 255, 0.12);
+  --hero-fill: #3ddc97;
+
+  --tint: #3ddc97;
+  --on-tint: #04150d;
+  --tint-soft: rgba(61, 220, 151, 0.14);
+  --tint-line: rgba(61, 220, 151, 0.45);
+
+  --good: #3ddc97;
+  --good-soft: rgba(61, 220, 151, 0.15);
+  --warn: #ffc05c;
+  --bad: #ff6b5e;
+  --bad-soft: rgba(255, 107, 94, 0.14);
+
+  --chip-1: rgba(255, 192, 92, 0.16);   --chip-1-ink: #ffc05c;
+  --chip-2: rgba(61, 220, 151, 0.15);   --chip-2-ink: #58e0a6;
+  --chip-3: rgba(255, 255, 255, 0.07);  --chip-3-ink: #cfe3d7;
+
+  --grid: rgba(255, 255, 255, 0.10);
+  --axis: rgba(255, 255, 255, 0.22);
+
+  --ramp-1: #cdf3e0;
+  --ramp-2: #8ee4bd;
+  --ramp-3: #55d2a0;
+  --ramp-4: #2aa87c;
+  --ramp-5: #177153;
+
+  --shell: rgba(17, 33, 26, 0.78);
+  --shell-line: rgba(255, 255, 255, 0.14);
+  --shell-shadow: none;
+
+  --decal-fill: rgba(61, 220, 151, 0.05);
+  --decal-line: rgba(61, 220, 151, 0.14);
+
+  --blur: blur(24px);
+}
+
+/* Heavier than Inter needs to be: Nunito's weight reads light at the sizes
+   the headings use, and the rounded shapes are what carry the look. */
+:root[data-look="minted"] h1,
+:root[data-look="minted"] h2,
+:root[data-look="minted"] h3 { font-weight: 800; letter-spacing: -.02em; }
+
 /* Without this, a `width: 100%` field plus its own padding is wider than its
    card — which is what made every input on a phone overflow and the row below
    it wrap into a column of 130px-tall boxes. */
