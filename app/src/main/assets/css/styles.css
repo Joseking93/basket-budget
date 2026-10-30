@@ -113,7 +113,10 @@ h4 { font-size: 13px; font-weight: 600; }
 .gauge-state:empty { display: none; }
 .gauge-cycle { margin: 10px 0 0; font-size: 11.5px; color: var(--muted); text-align: center; }
 
-.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; margin-top: 14px; }
+.chips {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px; width: 100%; margin-top: 14px;
+}
 .chip {
   border-radius: var(--r-md); padding: 10px 11px;
   display: flex; flex-direction: column; gap: 2px; min-width: 0;
@@ -126,7 +129,7 @@ h4 { font-size: 13px; font-weight: 600; }
 .chip-in { background: var(--chip-2); color: var(--chip-2-ink); }
 .chip-day { background: var(--chip-3); color: var(--chip-3-ink); }
 
-.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .duo-card { display: flex; flex-direction: column; gap: 6px; justify-content: space-between; }
 .duo-card h3 {
   font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
@@ -252,7 +255,7 @@ h4 { font-size: 13px; font-weight: 600; }
 }
 .ring-label { font-size: 11px; color: var(--ink2); }
 
-.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.legend { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
 .leg {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
   padding: 8px 9px; border-radius: var(--r-sm); border: 1px solid var(--card-line);
@@ -309,7 +312,10 @@ select.budget-assign { pointer-events: none; }
 }
 .cash-since { margin: 0; font-size: 12px; color: var(--ink2); }
 
-.cash-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 12px 0 14px; }
+.cash-acts {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 9px; margin: 12px 0 14px;
+}
 .cash-acts button { width: 100%; }
 .cash-countrow { display: flex; gap: 8px; margin-top: 10px; }
 .cash-countrow input { flex: 1 1 auto; min-width: 0; }
@@ -1249,7 +1255,15 @@ tr.is-stale { opacity: .55; }
 
 /* The budget lines as tiles: a dial, an icon, and the two figures. The icon
    is what you find the line by - at this size a name is read second. */
-#home-budgets.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* minmax(0, 1fr) and not 1fr: a plain 1fr keeps a floor of the column's
+   min-content width, and a name set to nowrap counts its WHOLE untruncated
+   self towards that - so two tiles holding "Fuel, transport & car" and
+   "Cash, fees & other" pushed the grid wider than the phone and the page
+   panned sideways. The ellipsis can only do its job once the column is
+   allowed to be narrower than the text. */
+#home-budgets.tiles {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px;
+}
 .btile {
   display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
   background: var(--card); border: 1px solid var(--card-line);
