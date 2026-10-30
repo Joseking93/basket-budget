@@ -23,6 +23,7 @@ import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
 import * as cash from './cash.js';
+import { glyphFor, glyphPaths, iconFor } from './icons.js';
 import { cycleStartOf } from './salary.js';
 import { suggestFor, guessFor } from './suggest.js';
 import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
@@ -3458,36 +3459,6 @@ function renderSpark(all, todayIso) {
  * in the line's own NAME, so a budget called "Shopping & gifts" still finds
  * one and a renamed line does not go blank.
  */
-const LINE_ICONS = [
-  [/^everything else$/i, '⋯'],
-  [/rent|hous|mortgage/i, '\u{1F3E0}'],
-  [/grocer|supermarket|food|market|duka/i, '\u{1F9FA}'],
-  [/shop|retail|clothes|gift/i, '\u{1F6CD}'],
-  [/transport|fuel|petrol|matatu|uber|car|mechanic/i, '\u{26FD}'],
-  [/airtime|data|bundle/i, '\u{1F4F1}'],
-  [/internet|wifi|fibre|fiber/i, '\u{1F4E1}'],
-  [/electric|power|kplc|token/i, '\u{1F4A1}'],
-  [/water|gas|utilit/i, '\u{1F4A7}'],
-  [/family|people|sent|support/i, '\u{1F91D}'],
-  [/health|pharm|medic|hospital|clinic/i, '\u{1F48A}'],
-  [/personal|salon|barber|care/i, '\u{1F9F4}'],
-  [/entertain|movie|night|fun/i, '\u{1F3AC}'],
-  [/subscri|netflix|spotify|stream/i, '\u{1F501}'],
-  // Not "fee": a line called "Cash, fees & other" is not school fees, and
-  // the first rule that matches wins. School is named by its own words.
-  [/school|educat|tuition|term \d/i, '\u{1F393}'],
-  [/dining|restaurant|takeaway|eat/i, '\u{1F37D}'],
-  [/sav(e|ing)|invest/i, '\u{1F3E6}'],
-  [/loan|credit|debt|repay/i, '\u{1F4B3}'],
-  [/cash|withdraw/i, '\u{1F4B5}'],
-  [/staff|househelp|nanny|garden/i, '\u{1F9F9}'],
-  [/gov|licen|tax|permit/i, '\u{1F3DB}'],
-];
-const lineIcon = (name) => {
-  for (const [re, icon] of LINE_ICONS) if (re.test(name)) return icon;
-  return '\u{1F4B0}';
-};
-
 /** The little ring around a tile's icon: how far through the line you are. */
 function tileDial(pct, colour) {
   const R = 16;
@@ -3539,7 +3510,7 @@ function renderHomeBudgets(report, budgeted, month) {
         const colour = cat ? viz.seriesColour(store.chartSlots([cat])[cat] ?? 7) : 'var(--tint)';
         return `<button class="btile${over ? ' over' : ''}" type="button" ${opens}>
           <span class="bt-dial">${tileDial(r.spent / r.amount, over ? 'var(--bad)' : colour)}
-            <em>${lineIcon(r.label)}</em></span>
+            <em>${iconFor(r.label, over ? 'var(--bad)' : colour)}</em></span>
           <span class="bt-text">
             <span class="bt-name">${escapeHtml(r.label)}</span>
             <span class="bt-amt">${viz.fmt(r.spent)}</span>
@@ -4133,7 +4104,7 @@ function renderHome(all) {
         middle: false,
         legend: false,
         hero: true,
-        iconOf: lineIcon,
+        iconOf: (c) => glyphPaths(glyphFor(c)),
       });
       wireDrill(ringBox, month);
     } else {

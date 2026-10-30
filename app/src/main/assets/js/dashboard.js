@@ -539,10 +539,8 @@ const drillAttr = (r) =>
  *                             thinner than the stroke and the small
  *                             categories had to be folded away to hide it.
  *                             Square ends cost nothing and give them back.
- * @param {Function} o.iconOf  category -> one character to sit on its slice.
- *                             Only slices with room get one: two discs on
- *                             neighbouring thin slices land on top of each
- *                             other.
+ * @param {Function} o.iconOf  category -> the SVG paths of its glyph, drawn on
+ *                             a disc sitting on its slice.
  */
 export function renderDonut(
   el,
@@ -557,6 +555,9 @@ export function renderDonut(
 
   const R = 52;
   const W = hero ? 13 : 16;
+  // Big enough for a glyph to be legible once the ring is drawn at phone size,
+  // small enough that eight of them fit round the circle.
+  const PIN_R = 9.5;
   const C = 2 * Math.PI * R;
   // A 2px gap in the surface colour is what separates touching slices - never a
   // stroke around them, which would add ink that is not data. In this viewBox
@@ -581,24 +582,61 @@ export function renderDonut(
     })
     .join('');
 
-  // A disc on each slice with room for one, at the middle of its own arc. The
-  // icon is what the colour means, which is the thing a ring cannot say by
-  // itself - and saying it here is what lets the ring go without a legend.
+  // A disc on EVERY slice, at the middle of its own arc - and where two of
+  // them would land on top of each other, pushed apart along the ring until
+  // they do not.
+  //
+  // A disc is 19 units across on a ring 327 units round, so it takes 5.8% of
+  // the circle whatever its slice is worth. Before the spreading, the only way
+  // to stop two discs colliding was to draw none under 9%, and a month with
+  // one big category then left most of the ring unlabelled. Eight slices at
+  // 6.4% apiece still fill only half the circle, so there is always somewhere
+  // to spread into. A disc that has moved off its own arc carries its own
+  // filter, so the tap still opens the category the icon is for.
   let pins = '';
-  if (iconOf) {
+  if (iconOf && rows.length) {
+    const SEP = (2 * PIN_R + 1.6) / C;
+    const n = rows.length;
     let seen = 0;
-    for (const r of rows) {
+    const want = rows.map((r) => {
       const share = r.total / total;
-      if (share > 0.09) {
-        const a = ((seen + share / 2) * 2 - 0.5) * Math.PI;
-        const x = 60 + Math.cos(a) * R;
-        const y = 60 + Math.sin(a) * R;
-        pins += `<circle class="ring-pin" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9.5"/>
-          <text class="ring-pin-ico" x="${x.toFixed(1)}" y="${(y + 3.6).toFixed(1)}"
-                text-anchor="middle">${esc(iconOf(r.category))}</text>`;
-      }
+      const mid = seen + share / 2;
       seen += share;
+      return mid;
+    });
+    const at = want.slice();
+    // Relaxation: the slices are already in order round the circle, so a pass
+    // only has to push each neighbouring pair apart - including the last pair,
+    // which meets round the back at twelve o'clock.
+    if (n > 1) {
+      for (let pass = 0; pass < 80; pass += 1) {
+        let worst = 0;
+        for (let i = 0; i < n; i += 1) {
+          const j = (i + 1) % n;
+          const gap = at[j] - at[i] + (j === 0 ? 1 : 0);
+          const push = (SEP - gap) / 2;
+          if (push > 0) {
+            at[i] -= push;
+            at[j] += push;
+            if (push > worst) worst = push;
+          }
+        }
+        if (worst < 1e-5) break;
+      }
     }
+    rows.forEach((r, i) => {
+      const a = (at[i] * 2 - 0.5) * Math.PI;
+      const x = 60 + Math.cos(a) * R;
+      const y = 60 + Math.sin(a) * R;
+      const g = 2 * PIN_R * 0.52;
+      pins += `<g class="ring-pin" ${drillAttr(r)}>
+          <title>${esc(r.category)}: ${fmt(r.total)}</title>
+          <circle class="ring-pin-disc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${PIN_R}"/>
+          <g class="ring-pin-ico" stroke="${seriesColour(slotOf(r.category))}"
+             transform="translate(${(x - g / 2).toFixed(1)} ${(y - g / 2).toFixed(1)})
+                        scale(${(g / 24).toFixed(4)})">${iconOf(r.category)}</g>
+        </g>`;
+    });
   }
 
   const legendHtml = !legend ? '' : rows

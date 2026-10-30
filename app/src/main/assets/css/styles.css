@@ -1243,8 +1243,15 @@ tr.is-stale { opacity: .55; }
 /* The discs that sit on the hero ring. The fill is the card they are on, so
    each one punches a hole in its slice rather than floating over it, and they
    never take a tap: the slice underneath owns it. */
-.ring-pin { fill: var(--card); stroke: var(--card-line); stroke-width: 1; pointer-events: none; }
-.ring-pin-ico { font-size: 9.5px; pointer-events: none; }
+.ring-pin { cursor: pointer; }
+.ring-pin-disc { fill: var(--card); stroke: var(--card-line); stroke-width: 1; }
+.ring-pin-ico { pointer-events: none; }
+/* On the path and not the group it sits in: the hero ring is inside .gauge,
+   and ".gauge path" sets the 14-unit stroke the arc gauge is drawn with. That
+   beats anything inherited, so a glyph came out as a solid blob of colour. */
+.ring-pin-ico path {
+  fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+}
 
 /* The budget lines as tiles: a dial, an icon, and the two figures. The icon
    is what you find the line by - at this size a name is read second. */
@@ -1260,8 +1267,9 @@ tr.is-stale { opacity: .55; }
 .bt-dial svg { display: block; width: 40px; height: 40px; }
 .bt-dial em {
   position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; font-style: normal; font-size: 16px; line-height: 1;
+  justify-content: center; font-style: normal;
 }
+.bt-dial em svg { width: 19px; height: 19px; }
 .bt-text { min-width: 0; display: flex; flex-direction: column; }
 .bt-name {
   font-size: 12.5px; font-weight: 700; white-space: nowrap;
