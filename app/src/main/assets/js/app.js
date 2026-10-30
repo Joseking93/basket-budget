@@ -23,7 +23,7 @@ import { budgetReport } from './budgets.js';
 import * as basket from './basket.js';
 import { ACCOUNT_LABELS } from './import.js';
 import * as cash from './cash.js';
-import { glyphFor, glyphMap, glyphPaths, glyphSvg } from './icons.js';
+import { emojiOf, glyphFor, glyphMap } from './icons.js';
 import { cycleStartOf } from './salary.js';
 import { suggestFor, guessFor } from './suggest.js';
 import { isConfigured, norm as normNumber, ASSET_BUILD, CYCLE_DAY } from './config.js';
@@ -3512,8 +3512,7 @@ function renderHomeBudgets(report, budgeted, month) {
         const colour = cat ? viz.seriesColour(store.chartSlots([cat])[cat] ?? 7) : 'var(--tint)';
         return `<button class="btile${over ? ' over' : ''}" type="button" ${opens}>
           <span class="bt-dial">${tileDial(r.spent / r.amount, over ? 'var(--bad)' : colour)}
-            <em>${glyphSvg(tileGlyphs[r.label] || glyphFor(r.label),
-              over ? 'var(--bad)' : colour)}</em></span>
+            <em>${emojiOf(tileGlyphs[r.label] || glyphFor(r.label))}</em></span>
           <span class="bt-text">
             <span class="bt-name">${escapeHtml(r.label)}</span>
             <span class="bt-amt">${viz.fmt(r.spent)}</span>
@@ -4109,7 +4108,7 @@ function renderHome(all) {
         middle: false,
         legend: false,
         hero: true,
-        iconOf: (c) => glyphPaths(hglyphs[c] || glyphFor(c)),
+        iconOf: (c) => emojiOf(hglyphs[c] || glyphFor(c)),
       });
       wireDrill(ringBox, month);
     } else {

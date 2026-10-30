@@ -539,8 +539,8 @@ const drillAttr = (r) =>
  *                             thinner than the stroke and the small
  *                             categories had to be folded away to hide it.
  *                             Square ends cost nothing and give them back.
- * @param {Function} o.iconOf  category -> the SVG paths of its glyph, drawn on
- *                             a disc sitting on its slice.
+ * @param {Function} o.iconOf  category -> the one character to sit on a disc
+ *                             on its slice.
  */
 export function renderDonut(
   el,
@@ -634,13 +634,11 @@ export function renderDonut(
       const a = (at[i] * 2 - 0.5) * Math.PI;
       const x = 60 + Math.cos(a) * R;
       const y = 60 + Math.sin(a) * R;
-      const g = 2 * PIN_R * 0.52;
       pins += `<g class="ring-pin" ${drillAttr(r)}>
           <title>${esc(r.category)}: ${fmt(r.total)}</title>
           <circle class="ring-pin-disc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${PIN_R}"/>
-          <g class="ring-pin-ico" stroke="${seriesColour(slotOf(r.category))}"
-             transform="translate(${(x - g / 2).toFixed(1)} ${(y - g / 2).toFixed(1)})
-                        scale(${(g / 24).toFixed(4)})">${iconOf(r.category)}</g>
+          <text class="ring-pin-ico" x="${x.toFixed(1)}" y="${(y + 3.6).toFixed(1)}"
+                text-anchor="middle">${esc(iconOf(r.category))}</text>
         </g>`;
     });
   }

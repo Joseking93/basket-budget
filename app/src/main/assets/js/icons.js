@@ -116,6 +116,49 @@ const RULES = [
   [/lent|lend|loaned/i, 'send'],
 ];
 
+/**
+ * The same set as emoji, which is what Jose wants on the ring: the colour
+ * and the character are the phone's, not ours, so they are the same little
+ * pictures he already knows from the keyboard. Keyed by GLYPH NAME, so a
+ * name resolved by glyphMap - which is what stops two slices sharing one -
+ * carries straight over.
+ */
+const EMOJI = {
+  house: '🏠',
+  basket: '🧺',
+  fuel: '⛽️',
+  car: '🚗',
+  bolt: '💡',
+  drop: '💧',
+  wifi: '📡',
+  phone: '📱',
+  repeat: '🔁',
+  cross: '💊',
+  scissors: '💇',
+  film: '🎬',
+  bag: '🛍️',
+  cash: '💵',
+  bank: '🏛️',
+  people: '🤝',
+  send: '📤',
+  card: '💳',
+  safe: '🏦',
+  pin: '📍',
+  cap: '🎓',
+  fork: '🍽️',
+  broom: '🧹',
+  gift: '🎁',
+  question: '❓',
+  dots: '⋯',
+  swap: '🔄',
+  tag: '🏷️',
+  cart: '🛒',
+  pill: '🩹',
+};
+
+/** The emoji for a glyph name, or a coin when the name is unknown. */
+export const emojiOf = (glyph) => EMOJI[glyph] || EMOJI.tag;
+
 /** The name of the glyph a category gets - "tag" when nothing matches. */
 export const glyphFor = (name) => (RULES.find(([re]) => re.test(name || '')) || [0, 'tag'])[1];
 
