@@ -540,14 +540,42 @@ const drillAttr = (r) =>
  *                            same size. Only worth it where the exact figures
  *                            are written out directly underneath.
  */
+/**
+ * Fold the slices a rounded ring cannot draw honestly.
+ *
+ * A round cap hangs half a stroke past each end, so no slice can be drawn
+ * thinner than the stroke itself. Seven thin categories therefore come back
+ * as seven identical pills - equal-looking slices that are not equal - and
+ * because each one is drawn shorter than the share it was given, the
+ * leftovers pile up as blank sectors: a fifth of the ring showing nothing.
+ *
+ * So anything too thin to draw at its real size is not drawn at its real
+ * size. It joins the fold that already exists for the long tail, under the
+ * same label, and the exact figures stay in the tiles underneath.
+ */
+function foldThin(rows, minShare) {
+  const total = rows.reduce((a, r) => a + r.total, 0);
+  const thin = rows.filter((r) => r.total / total < minShare);
+  // One thin slice is a slice. Two or more is the problem described above.
+  if (thin.length < 2) return rows;
+  const kept = rows.filter((r) => r.total / total >= minShare);
+  const folded = {
+    category: REST_LABEL,
+    total: thin.reduce((a, r) => a + r.total, 0),
+    count: thin.reduce((a, r) => a + r.count, 0),
+    // Keep what it stands for, so tapping it still opens those transactions.
+    rest: thin.flatMap((r) => r.rest || [r.category]),
+  };
+  return [...kept, folded];
+}
+
 export function renderDonut(
   el,
   rows,
   slotOf,
   { label = 'spent', middle = true, legend = true, ring = true, round = false } = {},
 ) {
-  const total = rows.reduce((a, r) => a + r.total, 0);
-  if (!rows.length || total <= 0) {
+  if (!rows.length || rows.reduce((a, r) => a + r.total, 0) <= 0) {
     el.innerHTML = '<p class="empty">Nothing to show yet.</p>';
     return;
   }
@@ -562,6 +590,9 @@ export function renderDonut(
   // A round cap hangs half a stroke past each end of the dash, so the dash has
   // to give that back or every slice grows by a stroke width.
   const CAP = round ? W : 0;
+  // Which is also the smallest slice a rounded ring can tell the truth about.
+  if (round) rows = foldThin(rows, (CAP + GAP) / C);
+  const total = rows.reduce((a, r) => a + r.total, 0);
 
   let at = 0;
   const arcs = rows
