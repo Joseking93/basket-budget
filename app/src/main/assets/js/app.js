@@ -9,6 +9,7 @@ import {
   personName,
   registerCustomCategories,
   isBuiltInCategory,
+  categoryParts,
 } from './rules.js';
 import * as store from './store.js';
 import * as viz from './dashboard.js';
@@ -38,6 +39,9 @@ const state = {
   drillCats: null,
   // What to call that set on screen: a budget line's name, or the ring's fold.
   drillCatsLabel: '',
+  // The budget line the list came from, so you can go and change it from here
+  // rather than going back and finding it again.
+  drillBudget: null,
   dirFilter: 'all',
   acctFilter: 'all',
   showSettled: false,
@@ -321,8 +325,17 @@ function render() {
   const filtered = rows.length !== txns.length;
   // The total of what is actually listed. Without it a filtered list is a
   // claim you cannot check, and checking it was the whole point of opening it.
-  const outOf = rows.filter((t) => t.direction === 'Out').reduce((a, t) => a + t.amount, 0);
-  const inOf = rows.filter((t) => t.direction === 'In').reduce((a, t) => a + t.amount, 0);
+  // Through categoryParts, so a split row contributes only the slice that
+  // matched. A 6,000 withdrawal with 2,864 of it filed as Groceries belongs in
+  // a Groceries list for 2,864, which is what the figure that opened it said.
+  const wanted = (p) => {
+    if (state.drillCats) return state.drillCats.includes(p.category);
+    if (state.catFilter !== 'all') return p.category === state.catFilter;
+    return true;
+  };
+  const parts = rows.flatMap(categoryParts).filter(wanted);
+  const outOf = parts.filter((t) => t.direction === 'Out').reduce((a, t) => a + t.amount, 0);
+  const inOf = parts.filter((t) => t.direction === 'In').reduce((a, t) => a + t.amount, 0);
   const sums = [outOf ? `${viz.fmt(outOf)} out` : '', inOf ? `${viz.fmt(inOf)} in` : '']
     .filter(Boolean)
     .join(' \u00b7 ');
@@ -371,7 +384,34 @@ function render() {
   if (state.dirFilter !== 'all') bits.push(state.dirFilter === 'Out' ? 'out only' : 'in only');
   if (state.acctFilter !== 'all') bits.push(state.acctFilter === 'bank' ? 'bank' : 'M-PESA');
   chip.hidden = bits.length === 0;
-  if (bits.length) chip.innerHTML = `<span>${bits.map(escapeHtml).join(' · ')}</span><button id="drill-clear">Clear</button>`;
+  if (bits.length) {
+    // A list opened from a budget line is usually being read to decide whether
+    // the line is right, so the way to change it belongs here, not three taps
+    // away behind the back button.
+    const toBudget = state.drillBudget
+      ? `<button id="drill-budget" class="ghost">Adjust budget</button>`
+      : '';
+    chip.innerHTML =
+      `<span>${bits.map(escapeHtml).join(' · ')}</span>${toBudget}<button id="drill-clear">Clear</button>`;
+  }
+  if (bits.length && $('#drill-budget')) {
+    $('#drill-budget').addEventListener('click', () => {
+      const id = state.drillBudget;
+      showView('budget');
+      // Put it in front of you and say which one, rather than leaving you to
+      // find the line again on a screen of them.
+      // After the view has drawn AND after the render it triggers: asking on
+      // the next frame found the table still holding its previous rows.
+      setTimeout(() => {
+        const row = document.querySelector(`#budget [data-budget-row="${id}"]`);
+        if (row) {
+          row.scrollIntoView({ block: 'center' });
+          row.classList.add('just-came-from');
+          setTimeout(() => row.classList.remove('just-came-from'), 1600);
+        }
+      }, 60);
+    });
+  }
   if (bits.length)
     $('#drill-clear').addEventListener('click', () => {
       state.drillMonth = null;
@@ -379,6 +419,7 @@ function render() {
       state.drillTo = null;
       state.drillClass = null;
       state.drillCats = null;
+      state.drillBudget = null;
       state.catFilter = 'all';
       state.search = '';
       state.dirFilter = 'all';
@@ -906,7 +947,7 @@ function renderBudget(all) {
       <thead><tr><th>Line</th><th class="num">Budget</th><th class="num">Spent</th><th>Progress</th><th class="num">Left</th></tr></thead>
       <tbody>${report
         .map(
-          (r) => `<tr>
+          (r) => `<tr data-budget-row="${escapeHtml(r.id)}">
         <td>
           <strong>${escapeHtml(r.label)}</strong>
           <div class="dim small">${
@@ -2400,11 +2441,13 @@ function wireDrill(root, scopeMonth) {
       const cats = el.dataset.drillCats;
       const name = el.dataset.drillName;
       state.drillCats = null;
+      state.drillBudget = null;
       if (cats) {
         // A set of categories: the ring's folded slice, or a budget line, which
         // covers several and so cannot be expressed as one category name.
         state.drillCats = cats.split('|');
         state.drillCatsLabel = el.dataset.drillLabel || '';
+        state.drillBudget = el.dataset.drillBudget || null;
         state.catFilter = 'all';
         state.search = '';
       }
@@ -3096,6 +3139,7 @@ function openBehind({ month = null, from = null, to = null, dir = 'all', search 
   state.drillTo = to;
   state.drillClass = spending ? 'spending' : null;
   state.drillCats = null;
+  state.drillBudget = null;
   state.dirFilter = dir;
   state.search = search;
   state.catFilter = 'all';
@@ -3213,6 +3257,7 @@ function renderBalances() {
       state.drillTo = null;
       state.drillClass = null;
       state.drillCats = null;
+      state.drillBudget = null;
       state.catFilter = 'all';
       state.dirFilter = 'all';
       state.search = '';
@@ -3281,7 +3326,8 @@ function renderHomeBudgets(report, budgeted, month) {
       // where you find out what the 29,150 was spent on.
       const covers = Array.isArray(r.categories) ? r.categories.filter(Boolean) : [];
       const opens = covers.length
-        ? `data-drill-cats="${escapeHtml(covers.join('|'))}" data-drill-label="${escapeHtml(r.label)}"`
+        ? `data-drill-cats="${escapeHtml(covers.join('|'))}" data-drill-label="${escapeHtml(r.label)}"` +
+          ` data-drill-budget="${escapeHtml(r.id)}"`
         : 'data-go="budget"'; // a line with nothing mapped has nothing to show
       return `<button class="bcard" type="button" ${opens}>
         <span class="bc-icon ${over ? 'neg' : ''}" aria-hidden="true">${over ? '!' : '●'}</span>

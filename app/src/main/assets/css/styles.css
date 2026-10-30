@@ -231,6 +231,10 @@ h4 { font-size: 13px; font-weight: 600; }
 .tipbar { background: var(--tint-soft); border-color: var(--tint-line); }
 .tip { color: var(--tint); }
 
+/* The line you just arrived at, so you do not have to find it again. */
+.just-came-from > td { background: var(--tint-soft); }
+.just-came-from > td:first-child { box-shadow: inset 3px 0 0 var(--tint); }
+
 /* ── The ring ──────────────────────────────────────────────── */
 .ring-card { margin-bottom: 14px; }
 .ring-wrap { position: relative; width: 186px; margin: 2px auto 14px; }

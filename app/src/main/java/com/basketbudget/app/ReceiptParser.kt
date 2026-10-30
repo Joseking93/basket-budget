@@ -59,8 +59,15 @@ object ReceiptParser {
      * A line total always carries cents: 210.00, 1,149.00. OCR turns the point
      * into a comma ("170,00") and a trailing zero into a letter ("3,650.0o"),
      * so both are allowed - but only in the cents, never in the shillings.
+     *
+     * Either grouped by commas OR a plain run of digits. Written as
+     * `\d{1,3}(?:,\d{3})*` it could only reach four digits THROUGH a comma, so
+     * an ungrouped "1299.00" matched as "299.00" - the shilling silently
+     * dropped, on every till that prints thousands without a comma. The
+     * lookbehind stops it finding that tail inside a longer number.
      */
-    private const val MONEY_PAT = """\d{1,3}(?:,\d{3})*[.,][0-9oO]{2}"""
+    private const val MONEY_PAT =
+        """(?<![\d.,])(?:\d{1,3}(?:,\d{3})+|\d+)[.,][0-9oO]{2}"""
     private val MONEY = Regex(MONEY_PAT)
 
     /**
@@ -211,7 +218,89 @@ object ReceiptParser {
         }
     }
 
+    /**
+     * "230297   1.000 PC   1299.00   1299.00" - code, quantity, unit, each,
+     * total. The code is optional because OCR sometimes loses it, and the unit
+     * is whatever the shop prints: PC, BU, KG, PKT.
+     */
+    private val QM_ROW = Regex(
+        """^\s*(?:([A-Za-z0-9][A-Za-z0-9.\-]*)\s+)?([0-9oO]+(?:[.,][0-9oO]+)?)\s*([A-Za-z]{1,4})\s+($MONEY_PAT)\s+($MONEY_PAT)\s*${'$'}"""
+    )
+
+    /** Rows that end the shopping on a Quickmart slip. */
+    private val QM_FOOTER = Regex(
+        """\b(TOTAL|CASH\s*PAID|MPESA|M-PESA|CASHIER|CONTROL\s*UNIT|CUN[o0]|PRE-?VAT)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** A VAT class printed at the end of the name row: "... 1KG      G". */
+    private val QM_VAT_CLASS = Regex("""\s+[A-Z]\s*${'$'}""")
+
+    /**
+     * Quickmart prints the NAME first and the figures underneath; Naivas does
+     * the opposite. Read by the Naivas rules the numbers row looks like a name
+     * and the real name is thrown away, so the layout is recognised up front
+     * and read by itself rather than bent into the block parser.
+     *
+     * Recognised by its shape, not by the shop's name at the top, so any till
+     * printing this way is read the same.
+     */
+    private fun looksLikeQuickmart(rows: List<String>): Boolean =
+        rows.count { QM_ROW.containsMatchIn(it.trim()) } >= 2
+
+    private fun parseQuickmart(rows: List<String>): ReceiptScan {
+        val items = mutableListOf<ReceiptItem>()
+        var total: Double? = null
+        var pendingName: String? = null
+        var inFooter = false
+
+        for (raw in rows) {
+            val row = raw.replace(' ', ' ').trim()
+            if (row.isEmpty()) continue
+
+            // A footer row carries a figure. Without that test the column
+            // heading "Item  Qty  Each  Total" ends the shopping before it
+            // starts, because it contains the word TOTAL.
+            if (QM_FOOTER.containsMatchIn(row) && row.any { it.isDigit() }) {
+                // "Total Qty : 5.00 units" is a count of things, not money.
+                if (TOTAL_ROW.containsMatchIn(row) && !NOT_THE_TOTAL.containsMatchIn(row)) {
+                    total = lastNumber(row) ?: total
+                }
+                inFooter = true
+                pendingName = null
+                continue
+            }
+            if (inFooter) continue
+
+            val m = QM_ROW.find(row)
+            if (m == null) {
+                // Anything that is not a figures row is a candidate name. The
+                // header rows above the first item are simply overwritten by
+                // the one that turns out to have figures under it.
+                pendingName = row
+                continue
+            }
+
+            val name = pendingName?.replace(QM_VAT_CLASS, "")?.trim()
+            pendingName = null
+            if (name.isNullOrBlank() || name.length < 2) continue
+
+            // quantity(), not toMoney(): a till writes "2.000", and toMoney
+            // reads the last two characters as cents, which turns 2.000 into
+            // nothing at all. A fractional quantity (0.605kg) still counts as
+            // one thing bought.
+            val qty = quantity(m.groupValues[2])?.let { if (it < 1) 1 else it.roundToInt() } ?: 1
+            val each = toMoney(m.groupValues[4])
+            val lineTotal = toMoney(m.groupValues[5]) ?: continue
+            if (items.size >= MAX_ITEMS) break
+            items += ReceiptItem(name, qty, each ?: lineTotal, lineTotal)
+        }
+        return ReceiptScan(items, total, null)
+    }
+
     fun parse(rows: List<String>): ReceiptScan {
+        if (looksLikeQuickmart(rows)) return parseQuickmart(rows)
+
         val items = mutableListOf<ReceiptItem>()
         var total: Double? = null
         var subtotal: Double? = null
