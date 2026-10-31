@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand">#4B3FBF</color>
+    <!-- The ring on the launcher icon stands on this. -->
+    <color name="brand">#156B45</color>
     <!-- The window colour before the page loads; the page then sets its own. -->
     <color name="page_bg">#F2F2F7</color>
 

@@ -1,26 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The round variant of the same tile, for launchers that ask for one. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#4B3FBF" android:pathData="M54,0 a54,54 0 1,0 0,108 a54,54 0 1,0 0,-108 Z" />
     <path
-        android:pathData="M22,32 L33,32 L47,70 L84,70"
+        android:fillColor="#156B45"
+        android:pathData="M54,0 a54,54 0 1,0 0,108 a54,54 0 1,0 0,-108 Z" />
+    <path
+        android:pathData="M54,24.5 A29.5,29.5 0 1,1 54,83.5 A29.5,29.5 0 1,1 54,24.5"
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:strokeColor="#F2FBF5"
+        android:strokeWidth="11"
+        android:trimPathStart="0.006"
+        android:trimPathEnd="0.714" />
     <path
-        android:pathData="M39,42 L92,42 L84,62 L49,62 Z"
+        android:pathData="M54,24.5 A29.5,29.5 0 1,1 54,83.5 A29.5,29.5 0 1,1 54,24.5"
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,82 m-5.5,0 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M78,82 m-5.5,0 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0" />
+        android:strokeColor="#EDA100"
+        android:strokeWidth="11"
+        android:trimPathStart="0.726"
+        android:trimPathEnd="0.994" />
 </vector>

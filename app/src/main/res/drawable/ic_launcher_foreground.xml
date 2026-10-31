@@ -1,30 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The ring the home screen is built around, with the part that has been spent
+  picked out in gold.
+
+  Both arcs are the SAME circle, drawn twice and trimmed: trimPathStart and
+  trimPathEnd are fractions of the path, and the path starts at twelve
+  o'clock and runs clockwise, so the figures below read as the ring does.
+  The small gaps at 0.006 and 0.72 are the hairline between the two, the same
+  separation the ring in the app uses.
+
+  Size: the circle is 62 across in a 108 box, so it sits inside the 66 that an
+  adaptive icon is guaranteed to show whatever mask the phone puts on it. The
+  full-bleed versions in mipmap-anydpi are drawn larger, because nothing
+  crops those.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- grip, the slant up the basket's left side, then the bottom rail -->
     <path
-        android:pathData="M30.9,35.7 L38.2,35.7 L47.4,60.8 L71.8,60.8"
+        android:pathData="M54,28 A26,26 0 1,1 54,80 A26,26 0 1,1 54,28"
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <!-- the basket -->
+        android:strokeColor="#F2FBF5"
+        android:strokeWidth="10"
+        android:trimPathStart="0.006"
+        android:trimPathEnd="0.714" />
     <path
-        android:pathData="M42.1,42.3 L77.1,42.3 L71.8,55.5 L48.7,55.5 Z"
+        android:pathData="M54,28 A26,26 0 1,1 54,80 A26,26 0 1,1 54,28"
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <!-- wheels -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,68.7 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M67.9,68.7 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0" />
+        android:strokeColor="#EDA100"
+        android:strokeWidth="10"
+        android:trimPathStart="0.726"
+        android:trimPathEnd="0.994" />
 </vector>
